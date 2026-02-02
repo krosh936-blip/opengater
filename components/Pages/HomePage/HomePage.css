@@ -1,0 +1,547 @@
+/* Home Page Styles - точная копия оригинальных стилей */
+
+/* ОБНОВЛЕННЫЙ БЛОК БАЛАНСА */
+.balance-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.balance-all {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.balance-header {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.balance-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.balance-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.balance-amount {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.currency-selector {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 60px;
+}
+
+.currency-selector:hover {
+  background: var(--surface-hover);
+}
+
+.currency-selector::after {
+  content: "▼";
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.deposit-button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  height: 36px;
+}
+
+.deposit-button:hover {
+  background: var(--primary-hover);
+}
+
+.days-remaining-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.balance-divider {
+  height: 1px;
+  background: var(--border);
+  width: 100%;
+}
+
+.quick-actions {
+  display: flex;
+  justify-content: space-around;
+  gap: 16px;
+}
+
+.action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+  flex: 1;
+  min-width: 0;
+}
+
+.action-item:hover {
+  background: var(--surface-hover);
+}
+
+.action-icon {
+  width: 44px;
+  height: 44px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+}
+
+.action-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+}
+
+/* Специфичные стили для каждой иконки */
+.action-item:first-child .action-icon svg {
+  stroke: none;
+  fill: currentColor;
+}
+
+.action-item:nth-child(2) .action-icon svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.action-item:last-child .action-icon svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.action-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* PROMO SLIDER - точные стили оригинала */
+.promo-slider {
+  position: relative;
+  margin-bottom: 20px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.promo-slider-track {
+  display: flex;
+  transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.promo-slide {
+  min-width: 100%;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  height: 140px;
+  flex-shrink: 0;
+}
+
+.promo-slide-stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 0L12.245 6.91H19.51L13.632 11.18L15.877 18.09L10 13.82L4.123 18.09L6.368 11.18L0.49 6.91H7.755L10 0Z' fill='white' fill-opacity='0.1'/%3E%3C/svg%3E");
+  background-size: 120px 120px;
+  opacity: 0.18;
+}
+
+.promo-slide-content {
+  flex: 1;
+  z-index: 1;
+}
+
+.promo-slide-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.promo-slide-subtitle {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.4;
+}
+
+.promo-slide-icon {
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.promo-slider-dots {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  z-index: 2;
+}
+
+.promo-slider-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.promo-slider-dot.active {
+  background: white;
+  transform: scale(1.2);
+}
+
+/* SECTION HEADER */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 32px 0 16px 0;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.count-badge {
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  min-width: 24px;
+  text-align: center;
+}
+
+/* БЛОК УСТАНОВКИ */
+.install-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.install-block:hover {
+  border-color: var(--primary);
+}
+
+.install-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.install-icon {
+  width: 56px;
+  height: 56px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.install-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.install-text {
+  flex: 1;
+}
+
+.install-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.install-text .action-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.install-button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.install-button:hover {
+  background: var(--primary-hover);
+}
+
+/* БЛОК УПРАВЛЕНИЯ */
+.referrals-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  overflow: hidden;
+}
+
+.referrals-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.referral-item {
+  display: flex;
+  align-items: center;
+  padding: 20px 24px;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.referral-item:last-child {
+  border-bottom: none;
+}
+
+.referral-item:hover {
+  background: var(--surface-hover);
+}
+
+.referral-avatar {
+  width: 44px;
+  height: 44px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.referral-avatar svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.referral-avatar svg circle[fill="currentColor"] {
+  fill: currentColor;
+}
+
+.referral-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.referral-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.loading-field {
+  font-size: 14px;
+  color: var(--text-secondary);
+  background: var(--surface);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  border: 1px solid var(--border);
+}
+
+.referral-status {
+  flex-shrink: 0;
+}
+
+.status-badge {
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+.referral-item:hover .status-badge {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Анимации */
+.fade-in {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .balance-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  
+  .deposit-button {
+    width: 100%;
+    text-align: center;
+  }
+  
+  .quick-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  
+  .action-item {
+    flex: 0 0 calc(33.333% - 11px);
+    max-width: calc(33.333% - 11px);
+  }
+  
+  .promo-slide {
+    flex-direction: column;
+    height: auto;
+    text-align: center;
+    padding: 32px 24px;
+  }
+  
+  .promo-slide-icon {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .install-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 20px;
+  }
+  
+  .install-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .balance-amount {
+    font-size: 32px;
+  }
+  
+  .action-item {
+    flex: 0 0 calc(50% - 8px);
+    max-width: calc(50% - 8px);
+  }
+  
+  .referral-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+    padding: 16px;
+  }
+  
+  .referral-info {
+    width: 100%;
+  }
+  
+  .status-badge {
+    width: 100%;
+  }
+}

@@ -1,0 +1,547 @@
+/* CSS переменные для темы */
+:root {
+  --bg-primary: #0a0a0b;
+  --bg-secondary: #141416;
+  --bg-card: #1a1a1d00;
+  --border: rgba(255, 255, 255, 0.08);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-muted: rgba(255, 255, 255, 0.4);
+  --accent: #8b5cf6;
+  --accent-secondary: #ec4899;
+  --success: #10b981;
+  --button-bg: #ffffff;
+  --button-text: #000000;
+  --progress-bg: #2a2a2d;
+  --progress-fill: #ffffff;
+  --primary: #007AFF;
+  --primary-hover: #0051D5;
+  --danger: #FF3B30;
+  --surface: rgba(255, 255, 255, 0.01);
+  --surface-hover: rgba(255, 255, 255, 0.05);
+  --surface-active: rgba(255, 255, 255, 0.8);
+  --text-tertiary: rgba(255, 255, 255, 0.4);
+  --blur: 20px;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 22px;
+  --radius-xl: 30px;
+  --dropdown-bg: #1e1e20fa;
+}
+
+/* Основные стили header */
+.header {
+  width: 100%;
+  background: var(--bg-card);
+  padding: 0 20px;
+  box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(var(--blur));
+}
+
+.header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 64px;
+  padding: 20px 20px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+
+/* Стили логотипа */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.logo-image {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
+}
+
+.logo-text {
+  font-size: 22px;
+  font-weight: 550;
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+/* Стили аватара профиля */
+.profile-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.profile-avatar:hover {
+  transform: scale(1.05);
+}
+
+.profile-avatar:active {
+  transform: scale(0.95);
+}
+
+.profile-avatar span {
+  color: white !important;
+}
+
+/* КОНТЕЙНЕР для dropdown - ОЧЕНЬ ВАЖНО */
+.profile-dropdown-container {
+  position: relative;
+  display: inline-block;
+}
+
+/* Выпадающее меню профиля */
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  background: var(--dropdown-bg);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 0 5px 10px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  z-index: 1000;
+  overflow: hidden;
+  display: none;
+}
+
+/* Состояния dropdown */
+.profile-dropdown.active {
+  display: block;
+  animation: dropdownOpen 0.2s ease-out forwards;
+  opacity: 1;
+  background: var(--);
+  transform: translateY(0);
+}
+
+.profile-dropdown.closing {
+  display: block;
+  animation: dropdownClose 0.2s ease-in forwards;
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* Анимации */
+@keyframes dropdownOpen {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dropdownClose {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* Заголовок меню профиля */
+.profile-menu-header {
+  padding: 16px;
+  position: relative;
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-menu-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  line-height: 0;
+  transition: all 0.2s ease;
+}
+
+.profile-menu-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.profile-menu-close:active {
+  transform: scale(0.9);
+}
+
+.profile-menu-close svg {
+  stroke: currentColor;
+}
+
+.profile-info {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.profile-info-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 18px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.profile-info-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-email {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.profile-uid {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.copy-uid-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  transition: all 0.2s ease;
+}
+
+.copy-uid-btn:hover {
+  color: var(--text-secondary);
+  background: var(--surface-hover);
+}
+
+.copy-uid-btn:active {
+  transform: scale(0.9);
+}
+
+.copy-uid-btn svg {
+  stroke: currentColor;
+}
+
+/* Стили для subscription-badge как на сайте */
+.subscription-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--success);
+  margin-top: 8px;
+  width: fit-content;
+  white-space: nowrap;
+}
+
+.subscription-badge svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  fill: currentColor;
+}
+
+/* Разделители */
+.profile-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 0;
+  border: none;
+}
+
+/* Контент меню */
+.profile-menu-content {
+  padding: 8px 0;
+}
+
+.profile-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  text-decoration: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.profile-menu-item:hover {
+  background: var(--surface-hover);
+}
+
+.profile-menu-item:active {
+  background: var(--surface);
+}
+
+.profile-menu-item.with-arrow {
+  cursor: pointer;
+}
+
+.profile-menu-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-menu-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  stroke: currentColor;
+}
+
+.profile-menu-item-value {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* Тогглер темы */
+.theme-toggle-container {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.theme-toggle {
+  width: 44px;
+  height: 24px;
+  background: var(--border);
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  padding: 0;
+}
+
+.theme-toggle.active {
+  background: var(--success);
+}
+
+.theme-toggle-slider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.theme-toggle.active .theme-toggle-slider {
+  transform: translateX(20px);
+}
+
+/* Стиль выхода */
+.logout-menu-item {
+  color: var(--danger);
+}
+
+.logout-menu-item:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.logout-menu-item:active {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.logout-menu-item .profile-menu-icon {
+  color: var(--danger);
+}
+
+.logout-menu-item .profile-menu-icon svg {
+  stroke: currentColor;
+}
+
+/* Медиа-запросы для адаптивности */
+@media (max-width: 768px) {
+  .header {
+    display: none;
+    padding: 0 16px;
+  }
+  
+  .header-content {
+    height: 56px;
+  }
+  
+  .logo-text {
+    font-size: 18px;
+  }
+  
+  .profile-dropdown {
+    width: 280px;
+    right: -10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 0 12px;
+  }
+  
+  .logo-text {
+    display: none;
+  }
+  
+  .profile-dropdown {
+    width: calc(100vw - 24px);
+    right: -12px;
+  }
+}
+
+/* Mobile header */
+.mobile-header {
+  display: none;
+  width: 100%;
+  background: var(--bg-card);
+  backdrop-filter: blur(var(--blur));
+  position: sticky;
+  top: 0;
+  z-index: 95;
+  height: 56px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@media (max-width: 768px) {
+  .mobile-header {
+    display: flex;
+  }
+}
+
+/* Profile overlay + slide menu (mobile) */
+.profile-menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 900;
+}
+
+.profile-menu-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.profile-slide-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 320px;
+  max-width: 88vw;
+  background: var(--dropdown-bg);
+  border-right: 1px solid var(--border);
+  box-shadow: 10px 0 25px rgba(0, 0, 0, 0.35);
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.profile-slide-menu.active {
+  transform: translateX(0);
+}
+
+.profile-slide-menu.closing {
+  transform: translateX(-100%);
+}
+
+@media (min-width: 769px) {
+  .profile-menu-overlay,
+  .profile-slide-menu {
+    display: none;
+  }
+}
+
+/* Фокус-стили для доступности */
+.profile-avatar:focus,
+.profile-menu-close:focus,
+.copy-uid-btn:focus,
+.profile-menu-item:focus,
+.theme-toggle:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}

@@ -1,0 +1,284 @@
+@import "tailwindcss";
+
+/* Общие CSS переменные (которые не меняются между темами) */
+:root {
+  /* Общие переменные которые не меняются между темами */
+  --accent: #8b5cf6;
+  --accent-secondary: #ec4899;
+  --success: #10b981;
+  --primary: #007AFF;
+  --primary-hover: #0051D5;
+  --danger: #FF3B30;
+  --blur: 20px;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 22px;
+  --radius-xl: 30px;
+  
+  /* ПЕРЕМЕННЫЕ ТЕМНОЙ ТЕМЫ (по умолчанию) */
+  --bg-primary: #0a0a0b;
+  --bg-secondary: #141416;
+  --bg-card: #1a1a1d00;
+  --border: rgba(255, 255, 255, 0.08);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-muted: rgba(255, 255, 255, 0.4);
+  --text-tertiary: rgba(255, 255, 255, 0.4);
+  --surface: rgba(255, 255, 255, 0.01);
+  --surface-hover: rgba(255, 255, 255, 0.05);
+  --surface-active: rgba(255, 255, 255, 0.8);
+  --progress-bg: #2a2a2d;
+  --progress-fill: #ffffff;
+  --button-bg: #ffffff;
+  --button-text: #000000;
+  --dropdown-bg: #1e1e20fa;
+}
+
+/* СВЕТЛАЯ ТЕМА через класс */
+:root.light-theme {
+  --bg-primary: #FFFFFF;
+  --bg-secondary: rgba(0, 0, 0, 0.04);
+  --bg-card: rgba(255, 255, 255, 0.98);
+  --border: rgba(0, 0, 0, 0.08);
+  --text-primary: rgba(0, 0, 0, 0.9);
+  --text-secondary: rgba(0, 0, 0, 0.6);
+  --text-muted: rgba(0, 0, 0, 0.4);
+  --text-tertiary: rgba(0, 0, 0, 0.4);
+  --surface: rgba(0, 0, 0, 0.04);
+  --surface-hover: rgba(0, 0, 0, 0.08);
+  --surface-active: rgba(0, 122, 255, 0.1);
+  --progress-bg: rgba(0, 0, 0, 0.1);
+  --progress-fill: #007AFF;
+  --button-bg: #007AFF;
+  --button-text: #FFFFFF;
+  --dropdown-bg: #f8f8f8fa;
+}
+
+/* Базовые стили */
+body {
+  margin: 0 auto;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
+  overflow-y: hidden; /* Убираем скролл у body */
+}
+
+/* Background layer */
+.background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(520px 520px at 12% 18%, rgba(139, 92, 246, 0.20), transparent 62%),
+    radial-gradient(620px 620px at 82% 12%, rgba(236, 72, 153, 0.16), transparent 62%),
+    radial-gradient(820px 640px at 60% 88%, rgba(14, 165, 233, 0.10), transparent 68%),
+    linear-gradient(180deg, rgba(10, 10, 11, 0.98) 0%, rgba(10, 10, 11, 0.99) 100%);
+}
+
+.light-theme .background {
+  background:
+    radial-gradient(520px 520px at 12% 18%, rgba(99, 102, 241, 0.12), transparent 62%),
+    radial-gradient(620px 620px at 82% 12%, rgba(236, 72, 153, 0.10), transparent 62%),
+    radial-gradient(820px 640px at 60% 88%, rgba(14, 165, 233, 0.08), transparent 68%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 250, 250, 0.99) 100%);
+}
+
+/* Контейнер как в оригинале - БЕЗ padding-bottom */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  flex-direction: column;
+  margin: 0 auto;
+  display: flex;
+  position: relative;
+  z-index: 1;
+  height: 100vh; /* Занимает всю высоту окна */
+  overflow: hidden; /* Убираем скролл */
+}
+
+/* ВАЖНО: Единый transition для всех элементов темы */
+.theme-transition *,
+.theme-transition {
+  transition: background-color 0.3s ease, 
+              border-color 0.3s ease, 
+              color 0.3s ease,
+              box-shadow 0.3s ease,
+              transform 0.3s ease,
+              fill 0.3s ease,
+              stroke 0.3s ease !important;
+  transition-delay: 0s !important;
+}
+
+/* По умолчанию переходы отключены */
+body:not(.theme-transition) *,
+body:not(.theme-transition) {
+  transition: none !important;
+}
+
+/* Исключения для изображений */
+img,
+.logo-image {
+  transition: none !important;
+}
+
+/* Отключаем анимацию при первом рендере */
+.initial-render * {
+  transition: none !important;
+}
+
+body.initial-render {
+  transition: none !important;
+}
+
+/* Утилитарные классы */
+* {
+  box-sizing: border-box;
+}
+
+button, 
+input, 
+textarea, 
+select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  outline: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul, ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Структура страницы - БЕЗ лишней высоты */
+.page-layout {
+  display: flex;
+  flex: 1; /* Занимает все доступное пространство */
+  position: relative;
+  width: 100%;
+  gap: 0;
+  height: calc(100vh - 64px); /* Точная высота минус Header */
+  overflow: hidden; /* Убираем скролл */
+}
+
+.main-content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto; /* Только контент может скроллиться если не помещается */
+  background: var(--bg-primary);
+  position: relative;
+  height: 100%;
+}
+
+/* Заглушки для страниц */
+.page-placeholder {
+  padding: 48px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 18px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+}
+
+/* Убираем скроллбар везде где можно */
+.main-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.main-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Адаптивность */
+@media (max-width: 1200px) {
+  .page-layout {
+    padding: 0 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 16px !important;
+    height: auto; /* На мобильных auto высота */
+    min-height: 100vh;
+    overflow-y: auto; /* На мобильных разрешаем скролл */
+  }
+  
+  .page-layout {
+    flex-direction: column;
+    height: auto;
+    min-height: calc(100vh - 56px);
+  }
+  
+  .main-content {
+    padding: 16px 0;
+    margin-left: 0;
+    overflow-y: visible;
+  }
+  
+  .page-placeholder {
+    margin-top: 16px;
+    padding: 32px 16px;
+    height: auto;
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 0 12px !important;
+  }
+  
+  .page-layout {
+    margin-bottom: 60px; /* Для мобильного сайдбара */
+  }
+  
+  .main-content {
+    padding-bottom: 80px;
+    padding: 12px 0;
+  }
+  
+  .page-placeholder {
+    padding: 24px 12px;
+    font-size: 16px;
+    min-height: 300px;
+    margin: 12px 0;
+  }
+}
