@@ -69,7 +69,7 @@ body {
   width: 100%;
   max-width: 100%;
   min-height: 100vh;
-  overflow-y: hidden; /* Убираем скролл у body */
+  overflow-y: auto;
 }
 
 /* Background layer */
@@ -83,6 +83,12 @@ body {
     radial-gradient(620px 620px at 82% 12%, rgba(236, 72, 153, 0.16), transparent 62%),
     radial-gradient(820px 640px at 60% 88%, rgba(14, 165, 233, 0.10), transparent 68%),
     linear-gradient(180deg, rgba(10, 10, 11, 0.98) 0%, rgba(10, 10, 11, 0.99) 100%);
+}
+
+@media (max-width: 768px) {
+  .background {
+    display: none;
+  }
 }
 
 .light-theme .background {
@@ -187,7 +193,7 @@ img {
 
 .main-content {
   flex: 1;
-  padding: 24px;
+  padding: 20px 24px;
   overflow-y: auto; /* Только контент может скроллиться если не помещается */
   background: var(--bg-primary);
   position: relative;
@@ -235,7 +241,7 @@ img {
 
 @media (max-width: 768px) {
   .container {
-    padding: 0 16px !important;
+    padding: 0 !important;
     height: auto; /* На мобильных auto высота */
     min-height: 100vh;
     overflow-y: auto; /* На мобильных разрешаем скролл */
@@ -248,7 +254,7 @@ img {
   }
   
   .main-content {
-    padding: 16px 0;
+    padding: 16px;
     margin-left: 0;
     overflow-y: visible;
   }
@@ -263,7 +269,7 @@ img {
 
 @media (max-width: 640px) {
   .container {
-    padding: 0 12px !important;
+    padding: 0 !important;
   }
   
   .page-layout {
@@ -272,7 +278,7 @@ img {
   
   .main-content {
     padding-bottom: 80px;
-    padding: 12px 0;
+    padding: 12px;
   }
   
   .page-placeholder {
@@ -280,5 +286,40 @@ img {
     font-size: 16px;
     min-height: 300px;
     margin: 12px 0;
+  }
+}
+
+/* Overrides to match original layout and enable scrolling */
+.container {
+  min-height: 100vh;
+  height: auto;
+  overflow: visible;
+}
+
+.page-layout {
+  min-height: calc(100vh - 64px);
+  height: auto;
+  overflow: visible;
+}
+
+.main-content {
+  height: auto;
+  overflow: visible;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 !important;
+    overflow: visible;
+  }
+
+  .main-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .main-content {
+    padding: 12px;
   }
 }

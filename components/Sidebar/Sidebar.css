@@ -338,3 +338,49 @@
     display: none;
   }
 }
+
+@media (max-width: 640px) {
+  .sidebar {
+    gap: 0;
+    justify-content: space-around;
+    padding: 6px 8px 10px;
+  }
+
+  .sidebar-section {
+    display: contents;
+  }
+
+  .sidebar-item--invite,
+  .sidebar-item--locations,
+  .sidebar-item--devices,
+  .sidebar-item--install {
+    display: none;
+  }
+
+  .sidebar-item--help {
+    display: flex;
+  }
+}
+
+@media (max-width: 640px) {
+  .sidebar {
+    background: var(--bg-primary);
+    border-top: 1px solid var(--border);
+    box-shadow: none;
+  }
+
+  .sidebar-item {
+    padding: 6px 8px;
+    gap: 6px;
+    border-radius: 10px;
+  }
+
+  .sidebar-item-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .sidebar-item-label {
+    font-size: 10px;
+  }
+}

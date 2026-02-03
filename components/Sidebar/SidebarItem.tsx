@@ -16,7 +16,8 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ item }) => {
   return (
     <a
       href="#"
-      className={`sidebar-item ${item.active ? 'active' : ''} ${item.disabled ? 'disabled' : ''}`}
+      className={`sidebar-item sidebar-item--${item.id} ${item.active ? 'active' : ''} ${item.disabled ? 'disabled' : ''}`}
+      data-id={item.id}
       onClick={handleClick}
       aria-current={item.active ? 'page' : undefined}
       aria-disabled={item.disabled}

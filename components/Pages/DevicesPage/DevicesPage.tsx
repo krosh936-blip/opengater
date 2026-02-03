@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import './DevicesPage.css';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUser } from '@/contexts/UserContext';
-import { fetchDeviceButtons, fetchDeviceTariff, setDeviceNumber, DeviceButtonOption, DeviceTariff } from '@/lib/api';
+import { fetchDeviceButtons, fetchDeviceTariff, setDeviceNumber, DeviceButtonOption, DeviceTariff, DeviceTariffResponse } from '@/lib/api';
 
 interface DevicesPageProps {
   onBack?: () => void;
@@ -103,7 +103,10 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
           fallbackPlanNumbers[0];
         setSelectedDeviceNumber(selected);
       } catch {
-        if (mounted) setPlans([]);
+        if (mounted) {
+          setPlans([]);
+          setSelectedDeviceNumber(user?.device_number || fallbackPlanNumbers[0]);
+        }
       }
     };
     loadPlans();
@@ -120,23 +123,27 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
       const results = await Promise.all(
         deviceNumbers.map(async (num) => {
           try {
-            const data = await fetchDeviceTariff(user.id, num);
-            return [num, data] as const;
-          } catch {
-            return null;
-          }
-        })
-      );
+        const data = await fetchDeviceTariff(user.id, num);
+        return [num, data] as const;
+      } catch {
+        return null;
+      }
+    })
+  );
       if (!mounted) return;
       const next: Record<number, DeviceTariff> = {};
       results.forEach((item) => {
         if (item) {
           const [num, data] = item;
-          next[num] = {
-            ...data,
-            tariff_per_day: Number(data.tariff_per_day),
-            tariff_per_month: Number(data.tariff_per_month),
-          };
+          const normalized: DeviceTariff =
+            typeof data === 'number'
+              ? { device_number: num, tariff_per_day: 0, tariff_per_month: Number(data) }
+              : {
+                  device_number: data.device_number ?? num,
+                  tariff_per_day: Number(data.tariff_per_day),
+                  tariff_per_month: Number(data.tariff_per_month),
+                };
+          next[num] = normalized;
         }
       });
       setTariffs(next);
@@ -154,12 +161,18 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
     fetchDeviceTariff(user.id, selectedDeviceNumber)
       .then((data) => {
         if (mounted) {
+          const normalized: DeviceTariff =
+            typeof data === 'number'
+              ? { device_number: selectedDeviceNumber, tariff_per_day: 0, tariff_per_month: Number(data) }
+              : {
+                  device_number: data.device_number ?? selectedDeviceNumber,
+                  tariff_per_day: Number(data.tariff_per_day),
+                  tariff_per_month: Number(data.tariff_per_month),
+                };
           setTariffs((prev) => ({
             ...prev,
             [selectedDeviceNumber]: {
-              ...data,
-              tariff_per_day: Number(data.tariff_per_day),
-              tariff_per_month: Number(data.tariff_per_month),
+              ...normalized,
             },
           }));
         }
@@ -170,10 +183,38 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
     };
   }, [selectedDeviceNumber, user?.id, tariffs]);
 
+  useEffect(() => {
+    if (!user?.id || !user?.device_number) return;
+    if (tariffs[user.device_number]) return;
+    let mounted = true;
+    fetchDeviceTariff(user.id, user.device_number)
+      .then((data) => {
+        if (!mounted) return;
+        const normalized: DeviceTariff =
+          typeof data === 'number'
+            ? { device_number: user.device_number, tariff_per_day: 0, tariff_per_month: Number(data) }
+            : {
+                device_number: data.device_number ?? user.device_number,
+                tariff_per_day: Number(data.tariff_per_day),
+                tariff_per_month: Number(data.tariff_per_month),
+              };
+        setTariffs((prev) => ({
+          ...prev,
+          [user.device_number as number]: normalized,
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [user?.id, user?.device_number, tariffs]);
+
   const currentTariff = useMemo(() => {
     if (selectedDeviceNumber == null) return null;
-    return tariffs[selectedDeviceNumber] || null;
-  }, [selectedDeviceNumber, tariffs]);
+    if (tariffs[selectedDeviceNumber]) return tariffs[selectedDeviceNumber];
+    if (user?.device_number && tariffs[user.device_number]) return tariffs[user.device_number];
+    return null;
+  }, [selectedDeviceNumber, tariffs, user?.device_number]);
 
   const discountPercent = 0;
   const discountValue = 0;

@@ -66,6 +66,8 @@ export interface DeviceTariff {
   tariff_per_month: number;
 }
 
+export type DeviceTariffResponse = DeviceTariff | number;
+
 export interface TelegramAuthPayload {
   id: number;
   first_name: string;
@@ -225,15 +227,23 @@ export const updateLocations = async (userId: number, locations: number[]): Prom
 };
 
 export const fetchDeviceButtons = async (userId: number): Promise<DeviceButtonOption[]> => {
-  const response = await fetch(`${API_PROXY_BASE_URL}/devices/number/buttons`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ user_id: userId }),
-    credentials: 'include',
-  });
+  const request = async (body: Record<string, unknown>) => {
+    return fetch(`${API_PROXY_BASE_URL}/devices/number/buttons`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      credentials: 'include',
+    });
+  };
+
+  let response = await request({ user_id: userId });
+
+  if (response.status === 422) {
+    response = await request({ id: userId });
+  }
 
   if (!response.ok) {
     throw new Error(`Ошибка сервера: ${response.status}`);
@@ -260,7 +270,7 @@ export const setDeviceNumber = async (userId: number, deviceNumber: number): Pro
   return response.json();
 };
 
-export const fetchDeviceTariff = async (userId: number, deviceNumber: number): Promise<DeviceTariff> => {
+export const fetchDeviceTariff = async (userId: number, deviceNumber: number): Promise<DeviceTariffResponse> => {
   const response = await fetch(`${API_PROXY_BASE_URL}/devices/number/tariff`, {
     method: 'POST',
     headers: {

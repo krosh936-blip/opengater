@@ -1,7 +1,7 @@
 .devices-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 
 .devices-mobile-header {
@@ -9,7 +9,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  height: 56px;
+  height: 44px;
 }
 
 .devices-page .back-button {
@@ -309,6 +309,134 @@
     display: flex;
   }
 
+  .devices-page .header-title {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 640px) {
+  .devices-mobile-header {
+    height: 46px;
+  }
+
+  .devices-page .back-button,
+  .devices-page .header-spacer {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+
+  .devices-page .header-title {
+    font-size: 15px;
+  }
+
+  .devices-page .hero-section {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .devices-page .hero-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .current-status,
+  .plan-card,
+  .custom-section,
+  .pricing-summary {
+    border-radius: 14px;
+  }
+
+  .plan-icon,
+  .status-icon {
+    border-radius: 10px;
+  }
+
+  .action-button {
+    border-radius: 12px;
+  }
+
+  .current-status {
+    padding: 12px;
+  }
+
+  .status-header {
+    font-size: 12px;
+  }
+
+  .status-devices {
+    font-size: 16px;
+  }
+
+  .price-value {
+    font-size: 16px;
+  }
+
+  .plans-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .plan-card {
+    padding: 12px;
+  }
+
+  .plan-badge {
+    top: 10px;
+    right: 10px;
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+
+  .plan-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .plan-title {
+    font-size: 14px;
+  }
+
+  .plan-devices {
+    font-size: 12px;
+  }
+
+  .plan-price {
+    font-size: 13px;
+  }
+
+  .custom-section {
+    padding: 12px;
+  }
+
+  .custom-label {
+    font-size: 12px;
+  }
+
+  .custom-input {
+    padding: 8px 10px;
+  }
+
+  .pricing-summary {
+    padding: 12px;
+  }
+
+  .pricing-title {
+    font-size: 13px;
+  }
+
+  .pricing-row {
+    font-size: 12px;
+  }
+
+  .action-button {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
   .plans-grid {
     grid-template-columns: 1fr;
   }

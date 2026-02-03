@@ -269,3 +269,47 @@
     display: flex;
   }
 }
+
+@media (max-width: 640px) {
+  .locations-mobile-header {
+    height: 46px;
+  }
+
+  .back-button,
+  .header-spacer {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+
+  .header-title {
+    font-size: 15px;
+  }
+
+  .hero-section {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .hero-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+  }
+
+  .locations-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .location-card {
+    border-radius: 14px;
+  }
+
+  .pricing-summary {
+    border-radius: 14px;
+  }
+
+  .save-button {
+    border-radius: 12px;
+  }
+}
