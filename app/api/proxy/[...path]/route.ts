@@ -87,22 +87,22 @@ const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
   }
 };
 
-export async function GET(req: NextRequest, context: { params: { path?: string[] } }) {
-  return proxyRequest(req, context.params?.path ?? []);
+export async function GET(req: NextRequest) {
+  return proxyRequest(req, []);
 }
 
-export async function POST(req: NextRequest, context: { params: { path?: string[] } }) {
-  return proxyRequest(req, context.params?.path ?? []);
+export async function POST(req: NextRequest) {
+  return proxyRequest(req, []);
 }
 
-export async function PUT(req: NextRequest, context: { params: { path?: string[] } }) {
-  return proxyRequest(req, context.params?.path ?? []);
+export async function PUT(req: NextRequest) {
+  return proxyRequest(req, []);
 }
 
-export async function PATCH(req: NextRequest, context: { params: { path?: string[] } }) {
-  return proxyRequest(req, context.params?.path ?? []);
+export async function PATCH(req: NextRequest) {
+  return proxyRequest(req, []);
 }
 
-export async function DELETE(req: NextRequest, context: { params: { path?: string[] } }) {
-  return proxyRequest(req, context.params?.path ?? []);
+export async function DELETE(req: NextRequest) {
+  return proxyRequest(req, []);
 }

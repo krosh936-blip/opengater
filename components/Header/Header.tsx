@@ -144,7 +144,9 @@ const Header: React.FC = () => {
           title="Профиль"
           onClick={handleOpenMobileMenu}
         >
-          <span id="profile-initials">{initials || '?'}</span>
+          <span id="profile-initials" className="profile-initials visible">
+            {initials || '?'}
+          </span>
         </button>
       </header>
     </>

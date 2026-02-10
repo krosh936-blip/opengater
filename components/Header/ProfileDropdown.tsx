@@ -139,6 +139,8 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
         </div>
       </div>
 
+      <div className="profile-menu-divider"></div>
+
       <div className="profile-menu-content">
         <div className="profile-menu-item with-arrow" onClick={showLanguageSelector}>
           <div className="profile-menu-icon">

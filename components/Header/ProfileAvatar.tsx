@@ -18,7 +18,9 @@ const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
       aria-expanded={!!onClick}
       aria-haspopup="true"
     >
-      <span id="desktop-profile-initials">{initials}</span>
+      <span id="desktop-profile-initials" className="profile-initials visible">
+        {initials}
+      </span>
     </button>
   );
 };

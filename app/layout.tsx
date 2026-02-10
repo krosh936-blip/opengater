@@ -5,7 +5,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { UserProvider } from '@/contexts/UserContext' // Добавляем импорт
 import { LanguageProvider } from '@/contexts/LanguageContext'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin', 'cyrillic'] })
 
 export const metadata: Metadata = {
   title: 'Opengater',
