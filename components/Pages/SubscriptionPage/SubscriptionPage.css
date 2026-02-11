@@ -1,15 +1,15 @@
-.subscription-page {
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
-  min-height: calc(100vh - 64px);
+﻿.subscription-page {
+  width: 100%;
+  padding: 17px 20px;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
 
-/* Loading State */
 .subscription-page.loading {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 60vh;
 }
 
 .loading-spinner {
@@ -30,72 +30,78 @@
   to { transform: rotate(360deg); }
 }
 
-/* Hero Section */
-.hero-section {
+.subscription-page .hero-section {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-.hero-icon {
+.subscription-page .hero-icon {
   width: 64px;
   height: 64px;
-  margin: 0 auto 20px;
-  background: var(--surface);
-  border-radius: var(--radius-lg);
+  margin: 0 auto 24px;
+  background: linear-gradient(135deg, rgba(0, 122, 255, 0.1), rgba(52, 199, 89, 0.1));
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
-.hero-icon svg {
+.subscription-page .hero-icon svg {
   width: 32px;
   height: 32px;
-  stroke: var(--primary);
+  color: var(--primary);
 }
 
-.hero-title {
-  font-size: 32px;
+.subscription-page .hero-title {
+  font-size: 28px;
   font-weight: 700;
-  color: var(--text-primary);
   margin-bottom: 12px;
-  line-height: 1.2;
+  background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-.hero-subtitle {
-  font-size: 16px;
+.subscription-page .hero-subtitle {
+  font-size: 14px;
   color: var(--text-secondary);
-  max-width: 500px;
-  margin: 0 auto;
   line-height: 1.5;
+  padding: 0 40px;
 }
 
-/* Subscription Cards */
 .subscription-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 12px;
+  background: rgba(26, 26, 29, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 22px;
+  margin-bottom: 20px;
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   position: relative;
-  transition: all 0.2s ease;
 }
 
-.subscription-card:hover {
-  border-color: var(--primary);
-  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.1);
+[data-theme="light"] .subscription-card {
+  background: #FFFFFF;
+  backdrop-filter: none;
+  border: 1px solid #E8E8ED;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 .card-header {
   display: flex;
   align-items: center;
-  margin-bottom: 14px;
-  gap: 12px;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .card-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -103,21 +109,21 @@
 }
 
 .card-icon.global {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #007AFF, #0051D5);
 }
 
 .card-icon.mirror {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: linear-gradient(135deg, #10b981, #059669);
 }
 
 .card-icon.vless {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
 }
 
 .card-icon svg {
-  width: 20px;
-  height: 20px;
-  stroke: white;
+  width: 24px;
+  height: 24px;
+  color: #FFFFFF;
 }
 
 .card-info {
@@ -126,13 +132,9 @@
 }
 
 .card-title {
-  font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary);
+  font-size: 16px;
   margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .card-description {
@@ -140,95 +142,124 @@
   color: var(--text-secondary);
 }
 
-.card-menu-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.card-menu-btn:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-}
-
-.card-menu-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-/* Link Field */
 .link-field-wrapper {
   position: relative;
 }
 
 .link-field {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  width: 100%;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 46px;
+  background: rgba(42, 42, 45, 0.5);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
   border-radius: 12px;
-  padding: 12px 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  padding: 12px;
+  gap: 8px;
+  overflow: visible;
   position: relative;
-  overflow: hidden;
-  user-select: none;
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
-.link-field:hover {
-  background: var(--surface-hover);
-  border-color: var(--primary);
+.link-field:active {
+  background: rgba(42, 42, 45, 0.7);
 }
 
-.link-field:focus {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
+[data-theme="light"] .link-field {
+  background: #F5F5F7;
+  backdrop-filter: none;
+}
+
+[data-theme="light"] .link-field:active {
+  background: #E8E8ED;
+}
+
+.link-field.link-field-disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .link-text {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 13px;
-  color: var(--text-primary);
-  word-break: break-all;
-  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
   position: relative;
-  padding-right: 100px;
 }
 
-.copy-notification {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--bg-card);
+.card-menu-btn {
+  width: 20px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  color: var(--primary);
-  padding: 0 16px;
-  animation: slideIn 0.3s ease;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
-@keyframes slideIn {
+.card-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.subscription-page .toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  animation: slideUp 0.3s ease-out;
+  z-index: 1000;
+}
+
+[data-theme="light"] .subscription-page .toast {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes slideUp {
   from {
-    transform: translateX(100%);
     opacity: 0;
+    transform: translateX(-50%) translateY(20px);
   }
   to {
-    transform: translateX(0);
     opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
 }
 
-/* Dropdown */
+.card-menu-btn:active {
+  transform: scale(0.95);
+}
+
+[data-theme="light"] .card-menu-btn:hover {
+  background: #E8E8ED;
+}
+
+.card-menu-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
 .dropdown-backdrop {
   position: fixed;
   top: 0;
@@ -240,203 +271,244 @@
 
 .action-dropdown {
   position: absolute;
-  top: 100px;
+  top: 60px;
   right: 24px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-  width: 240px;
+  min-width: 220px;
+  background: #1c1c1e;
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: none;
   z-index: 50;
-  overflow: hidden;
+  overflow: visible;
+}
+
+.action-dropdown.active {
+  display: block;
+  animation: dropdownFadeIn 0.2s ease forwards;
+}
+
+.action-dropdown.closing {
+  display: block;
+  animation: dropdownFadeOut 0.15s ease forwards;
+}
+
+.subscription-card:has(.action-dropdown.active),
+.subscription-card:has(.action-dropdown.closing) {
+  z-index: 100;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dropdownFadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+[data-theme="light"] .action-dropdown {
+  background: #FFFFFF;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
 .dropdown-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  cursor: pointer;
   color: var(--text-primary);
   font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  font-weight: 500;
+  transition: background 0.2s ease, color 0.2s ease;
   position: relative;
 }
 
 .dropdown-item:hover {
-  background: var(--surface-hover);
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.dropdown-item.has-submenu:hover .dropdown-submenu {
-  display: block;
+.dropdown-item:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.dropdown-item.has-submenu.expanded {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .dropdown-item:hover {
+  background: #F5F5F7;
+}
+
+[data-theme="light"] .dropdown-item:active {
+  background: #E8E8ED;
 }
 
 .dropdown-item svg {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
+  width: 20px;
+  height: 20px;
+  color: var(--text-primary);
   flex-shrink: 0;
+  transition: color 0.2s ease;
 }
 
-.dropdown-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
+.dropdown-item.has-submenu.expanded svg {
+  color: var(--text-secondary);
+}
+
+.dropdown-item.has-submenu::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--text-secondary);
+  border-bottom: 2px solid var(--text-secondary);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+
+.dropdown-item.has-submenu.expanded::after {
+  transform: rotate(45deg);
 }
 
 .dropdown-submenu {
-  display: none;
-  position: absolute;
-  left: 100%;
-  top: 0;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  min-width: 160px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  z-index: 51;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+  opacity: 0;
+}
+
+.dropdown-item.has-submenu.expanded + .dropdown-submenu {
+  max-height: 300px;
+  opacity: 1;
+  margin-top: 4px;
 }
 
 .submenu-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
   color: var(--text-primary);
   font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  font-weight: 500;
+  transition: background 0.2s ease;
 }
 
 .submenu-item:hover {
-  background: var(--surface-hover);
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.app-icon-placeholder {
-  width: 20px;
+[data-theme="light"] .submenu-item:hover {
+  background: #F5F5F7;
+}
+
+.submenu-item img {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 6px 8px;
+}
+
+[data-theme="light"] .dropdown-divider {
+  background: #E8E8ED;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+.skeleton-text {
+  display: block;
   height: 20px;
-  border-radius: 4px;
-  background: var(--surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: bold;
-  color: var(--text-secondary);
+  width: 100%;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .subscription-page {
-    padding: 16px;
-  }
-  
-  .hero-title {
-    font-size: 24px;
-  }
-  
-  .hero-icon {
-    width: 48px;
-    height: 48px;
-  }
-  
-  .hero-icon svg {
-    width: 24px;
-    height: 24px;
-  }
-  
-  .subscription-card {
-    padding: 14px;
-    border-radius: 14px;
-  }
-
-  .card-header {
-    margin-bottom: 12px;
-  }
-
-  .card-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-  }
-
-  .card-title {
-    font-size: 15px;
-  }
-
-  .card-description {
-    font-size: 12px;
-  }
-
-  .link-field {
-    padding: 10px 12px;
-  }
-
-  .link-text {
-    font-size: 12px;
-    padding-right: 80px;
-  }
-  
-  .action-dropdown {
-    position: fixed;
-    top: auto;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: auto;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    animation: slideUp 0.3s ease;
-  }
-  
-  .dropdown-submenu {
-    position: static;
-    display: none;
-    border: none;
-    box-shadow: none;
-    animation: none;
-  }
-  
-  .dropdown-item.has-submenu:hover .dropdown-submenu {
-    display: block;
-  }
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-@keyframes slideUp {
+[data-theme="light"] .skeleton {
+  background: linear-gradient(
+    90deg,
+    #E8E8ED 0%,
+    #D1D1D6 50%,
+    #E8E8ED 100%
+  );
+  background-size: 200% 100%;
+}
+
+@keyframes fadeInUp {
   from {
-    transform: translateY(100%);
+    opacity: 0;
+    transform: translateY(20px);
   }
   to {
+    opacity: 1;
     transform: translateY(0);
   }
 }
 
-/* Убираем лишние отступы */
-.subscription-page {
-  max-height: 100%;
-  overflow-y: auto;
+.link-text.fade-in {
+  animation: fadeInUpSmooth 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.subscription-page::-webkit-scrollbar {
-  width: 6px;
-}
-
-.subscription-page::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.subscription-page::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-
-/* На мобильных делаем нормальный скролл */
-@media (max-width: 768px) {
-  .subscription-page {
-    overflow-y: visible;
-    padding-bottom: 20px;
+@keyframes fadeInUpSmooth {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(1px);
   }
-  
-  .subscription-page::-webkit-scrollbar {
-    display: none;
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@media (min-width: 768px) {
+  .subscription-page {
+    padding: 0;
+    padding-bottom: 0;
+  }
+
+  .subscription-page .hero-title {
+    font-size: 36px;
+  }
+
+  .subscription-page .hero-subtitle {
+    padding: 0 80px;
   }
 }

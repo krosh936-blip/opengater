@@ -1,0 +1,183 @@
+﻿'use client';
+import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
+import { Currency, fetchCurrencies, setUserCurrency } from '@/lib/api';
+import { useUser } from '@/contexts/UserContext';
+
+interface CurrencyContextType {
+  currency: Currency;
+  currencies: Currency[];
+  isLoading: boolean;
+  currencyRefreshId: number;
+  setCurrencyCode: (code: string) => Promise<void>;
+  formatCurrency: (value: number, options?: { showSymbol?: boolean; showCode?: boolean }) => string;
+  formatNumber: (value: number) => string;
+  toRub: (value: number, fromCurrency?: Currency | null) => number;
+}
+
+const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
+
+const STORAGE_KEY = 'currency_code';
+
+const DEFAULT_CURRENCIES: Currency[] = [
+  { code: 'RUB', symbol: '₽', rate: 1, rounding_precision: 0, id: 1, hidden: false },
+  { code: 'USD', symbol: '$', rate: 75, rounding_precision: 2, id: 2, hidden: false },
+  { code: 'AMD', symbol: '֏', rate: 0.2, rounding_precision: 0, id: 3, hidden: false },
+];
+
+const findCurrency = (list: Currency[], code?: string | null) =>
+  list.find((item) => item.code === code);
+
+const mergeCurrencies = (data: Currency[]) => {
+  const map = new Map(DEFAULT_CURRENCIES.map((item) => [item.code, item]));
+  data.forEach((item) => {
+    const existing = map.get(item.code);
+    map.set(item.code, existing ? { ...existing, ...item } : item);
+  });
+  return Array.from(map.values());
+};
+
+export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
+  const { user } = useUser();
+  const [currencies, setCurrencies] = useState<Currency[]>(DEFAULT_CURRENCIES);
+  const [selectedCode, setSelectedCode] = useState<string>('RUB');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [currencyRefreshId, setCurrencyRefreshId] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadCurrencies = async () => {
+      setIsLoading(true);
+      try {
+        const data = await fetchCurrencies();
+        if (!mounted) return;
+        const filtered = Array.isArray(data) ? data.filter((item) => !item.hidden) : [];
+        if (filtered.length) {
+          setCurrencies(mergeCurrencies(filtered));
+        }
+      } catch {
+        // keep fallback
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+    loadCurrencies();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      setSelectedCode(saved);
+    } else {
+      localStorage.setItem(STORAGE_KEY, 'RUB');
+      setSelectedCode('RUB');
+    }
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!user?.currency?.code) return;
+    setSelectedCode(user.currency.code);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, user.currency.code);
+    }
+  }, [user?.currency?.code]);
+
+  useEffect(() => {
+    if (!isHydrated || typeof window === 'undefined') return;
+    localStorage.setItem(STORAGE_KEY, selectedCode);
+  }, [isHydrated, selectedCode]);
+
+  const currency = useMemo(() => {
+    const found = findCurrency(currencies, selectedCode);
+    if (found) return found;
+    return {
+      code: selectedCode,
+      symbol: selectedCode,
+      rate: 1,
+      rounding_precision: 2,
+      id: 0,
+      hidden: false,
+    } satisfies Currency;
+  }, [currencies, selectedCode]);
+
+  const toRub = (value: number, fromCurrency?: Currency | null) => {
+    const source = fromCurrency || currency;
+    if (!source?.rate || source.code === 'RUB') {
+      return Number(value) || 0;
+    }
+    return (Number(value) || 0) * source.rate;
+  };
+
+  const formatNumber = (value: number) => {
+    const normalized = Number(value) || 0;
+    const precision = currency?.rounding_precision ?? 0;
+    return precision > 0 ? normalized.toFixed(precision) : Math.round(normalized).toString();
+  };
+
+  const formatCurrency = (value: number, options?: { showSymbol?: boolean; showCode?: boolean }) => {
+    const valueFormatted = formatNumber(value);
+    if (options?.showCode) {
+      return `${valueFormatted} ${currency.code}`;
+    }
+    if (options?.showSymbol === false) {
+      return valueFormatted;
+    }
+    const symbol = currency.symbol || currency.code;
+    return `${symbol}${valueFormatted}`;
+  };
+
+  const setCurrencyCode = async (code: string) => {
+    if (code === selectedCode) return;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, code);
+    }
+    setSelectedCode(code);
+    if (!user?.id) {
+      setCurrencyRefreshId((prev) => prev + 1);
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
+      return;
+    }
+    try {
+      await setUserCurrency(user.id, code);
+    } catch {
+      // keep local selection even if API update fails
+    } finally {
+      setCurrencyRefreshId((prev) => prev + 1);
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
+    }
+  };
+
+  return (
+    <CurrencyContext.Provider
+      value={{
+        currency,
+        currencies,
+        isLoading,
+        currencyRefreshId,
+        setCurrencyCode,
+        formatCurrency,
+        formatNumber,
+        toRub,
+      }}
+    >
+      {children}
+    </CurrencyContext.Provider>
+  );
+};
+
+export const useCurrency = () => {
+  const context = useContext(CurrencyContext);
+  if (!context) {
+    throw new Error('useCurrency must be used within CurrencyProvider');
+  }
+  return context;
+};

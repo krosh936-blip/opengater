@@ -22,7 +22,8 @@ interface AppInfo {
 
 export default function SubscriptionPage() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [expandedSubmenu, setExpandedSubmenu] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [subscriptionLinks, setSubscriptionLinks] = useState<SubscriptionLink[]>([]);
   const [apps] = useState<AppInfo[]>([
     { id: 'happ', name: 'Happ', icon: '/resources/img/happ.png' },
@@ -33,6 +34,16 @@ export default function SubscriptionPage() {
   // Используем хук для получения данных пользователя
   const { user, isLoading, error, isAuthenticated } = useUser();
   const { t } = useLanguage();
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const showToast = (message: string) => {
+    setToast(message);
+  };
 
   // Загрузка данных из API пользователя
   useEffect(() => {
@@ -69,11 +80,23 @@ export default function SubscriptionPage() {
   }, [user, t]);
 
   const toggleDropdown = (dropdownId: string) => {
-    setActiveDropdown(activeDropdown === dropdownId ? null : dropdownId);
+    setActiveDropdown((prev) => {
+      if (prev === dropdownId) {
+        setExpandedSubmenu(null);
+        return null;
+      }
+      setExpandedSubmenu(null);
+      return dropdownId;
+    });
   };
 
   const closeAllDropdowns = () => {
     setActiveDropdown(null);
+    setExpandedSubmenu(null);
+  };
+
+  const toggleSubmenu = (dropdownId: string) => {
+    setExpandedSubmenu((prev) => (prev === dropdownId ? null : dropdownId));
   };
 
   const copyToClipboard = async (text: string, id: string) => {
@@ -81,8 +104,7 @@ export default function SubscriptionPage() {
     
     try {
       await navigator.clipboard.writeText(text);
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
+      showToast(t('common.copied'));
       
       const element = document.getElementById(id);
       if (element) {
@@ -99,8 +121,7 @@ export default function SubscriptionPage() {
       textArea.select();
       document.execCommand('copy');
       document.body.removeChild(textArea);
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
+      showToast(t('common.copied'));
     }
   };
 
@@ -224,59 +245,62 @@ export default function SubscriptionPage() {
             >
               <span className="link-text" id={link.id} style={{ transition: 'opacity 0.3s ease-out', opacity: 1 }}>
                 {link.value}
-                {copiedId === link.id && (
-                  <span className="copy-notification">{t('common.copied')}</span>
-                )}
               </span>
             </div>
           </div>
 
           {/* Dropdown Menu */}
           {activeDropdown === link.id && link.value && link.value !== t('common.unavailable') && (
-            <>
-              <div 
-                className="dropdown-backdrop" 
-                onClick={closeAllDropdowns}
-                aria-label={t('common.close_menu')}
-              />
-              <div className="action-dropdown" id={`dropdown-${link.id}`}>
-                <div className="dropdown-item has-submenu">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 5v14M5 12h14"></path>
-                  </svg>
-                  <span>{t('subscription.add_to')}</span>
-                  <div className="dropdown-submenu">
-                    {apps.map(app => (
-                      <div 
-                        key={`${link.id}-${app.id}`}
-                        className="submenu-item"
-                        onClick={() => handleAddToApp(app.id, link.id)}
-                      >
-                        <div className="app-icon-placeholder">{app.name.charAt(0)}</div>
-                        <span>{app.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="dropdown-divider"></div>
-                <div 
-                  className="dropdown-item" 
-                  onClick={() => {
-                    copyToClipboard(link.value, link.id);
-                    closeAllDropdowns();
-                  }}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                  <span>{t('common.copy')}</span>
-                </div>
-              </div>
-            </>
+            <div 
+              className="dropdown-backdrop" 
+              onClick={closeAllDropdowns}
+              aria-label={t('common.close_menu')}
+            />
           )}
+          <div
+            className={`action-dropdown ${activeDropdown === link.id && link.value && link.value !== t('common.unavailable') ? 'active' : ''}`}
+            id={`dropdown-${link.id}`}
+          >
+            <div
+              className={`dropdown-item has-submenu ${expandedSubmenu === link.id ? 'expanded' : ''}`}
+              onClick={() => toggleSubmenu(link.id)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 5v14M5 12h14"></path>
+              </svg>
+              <span>{t('subscription.add_to')}</span>
+            </div>
+            <div className="dropdown-submenu">
+              {apps.map(app => (
+                <div 
+                  key={`${link.id}-${app.id}`}
+                  className="submenu-item"
+                  onClick={() => handleAddToApp(app.id, link.id)}
+                >
+                  <img src={app.icon} alt={app.name} />
+                  <span>{app.name}</span>
+                </div>
+              ))}
+            </div>
+            <div className="dropdown-divider"></div>
+            <div 
+              className="dropdown-item" 
+              onClick={() => {
+                copyToClipboard(link.value, link.id);
+                closeAllDropdowns();
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>{t('common.copy')}</span>
+            </div>
+          </div>
         </div>
       ))}
+
+      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }

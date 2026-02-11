@@ -1,25 +1,83 @@
-'use client'
+﻿'use client'
 import React, { useEffect, useMemo, useState } from 'react';
 import './LocationsPage.css';
 import { useUser } from '@/contexts/UserContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { fetchAvailableLocations, updateLocations, LocationItem } from '@/lib/api';
 
 interface LocationsPageProps {
   onBack?: () => void;
 }
 
+type LocationLocale = { name: string; description?: string };
+type LocationLocales = Partial<Record<'ru' | 'en' | 'am', LocationLocale>>;
+
+const LOCATION_LOCALIZED: Record<number, LocationLocales> = {
+  2: {
+    en: { name: 'Netherlands', description: 'Amsterdam' },
+    ru: { name: '\u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b', description: '\u0410\u043c\u0441\u0442\u0435\u0440\u0434\u0430\u043c' },
+    am: { name: '\u0546\u056b\u0564\u0565\u057c\u056c\u0561\u0576\u0564\u0576\u0565\u0580', description: '\u0531\u0574\u057d\u057f\u0565\u0580\u0564\u0561\u0574' },
+  },
+  3: {
+    en: { name: 'USA', description: 'New Jersey' },
+    ru: { name: '\u0421\u0428\u0410', description: '\u041d\u044c\u044e-\u0414\u0436\u0435\u0440\u0441\u0438' },
+    am: { name: '\u0531\u0544\u0546', description: '\u0546\u0575\u0578\u0582 \u054b\u0565\u0580\u057d\u056b' },
+  },
+  4: {
+    en: { name: 'Germany', description: 'Frankfurt' },
+    ru: { name: '\u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f', description: '\u0424\u0440\u0430\u043d\u043a\u0444\u0443\u0440\u0442' },
+    am: { name: '\u0533\u0565\u0580\u0574\u0561\u0576\u056b\u0561', description: '\u0556\u0580\u0561\u0576\u056b\u0584\u0586\u0578\u0582\u0580\u057f' },
+  },
+  5: {
+    en: { name: 'Russia', description: 'Saint Petersburg' },
+    ru: { name: '\u0420\u043e\u0441\u0441\u0438\u044f', description: '\u0421\u0430\u043d\u043a\u0442-\u041f\u0435\u0442\u0435\u0440\u0431\u0443\u0440\u0433' },
+    am: { name: '\u054c\u0578\u0582\u057d\u0561\u057d\u057f\u0561\u0576', description: '\u054d\u0561\u0576\u056f\u057f \u054a\u0565\u057f\u0565\u0580\u0562\u0578\u0582\u0580\u0563' },
+  },
+  9: {
+    en: { name: 'Turkey', description: 'Istanbul' },
+    ru: { name: '\u0422\u0443\u0440\u0446\u0438\u044f', description: '\u0421\u0442\u0430\u043c\u0431\u0443\u043b' },
+    am: { name: '\u0539\u0578\u0582\u0580\u0584\u056b\u0561', description: '\u054d\u057f\u0561\u0574\u0562\u0578\u0582\u056c' },
+  },
+  10: {
+    en: { name: 'Kazakhstan', description: 'Almaty' },
+    ru: { name: '\u041a\u0430\u0437\u0430\u0445\u0441\u0442\u0430\u043d', description: '\u0410\u043b\u043c\u0430\u0442\u044b' },
+    am: { name: '\u0542\u0561\u0566\u0561\u056d\u057d\u057f\u0561\u0576', description: '\u0531\u056c\u0574\u0561\u0569\u056b' },
+  },
+  11: {
+    en: { name: 'France', description: 'Paris' },
+    ru: { name: '\u0424\u0440\u0430\u043d\u0446\u0438\u044f', description: '\u041f\u0430\u0440\u0438\u0436' },
+    am: { name: '\u0556\u0580\u0561\u0576\u057d\u056b\u0561', description: '\u0553\u0561\u0580\u056b\u0566' },
+  },
+  14: {
+    en: { name: 'Netherlands Premium', description: 'Amsterdam' },
+    ru: { name: '\u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b Premium', description: '\u0410\u043c\u0441\u0442\u0435\u0440\u0434\u0430\u043c' },
+    am: { name: '\u0546\u056b\u0564\u0565\u057c\u056c\u0561\u0576\u0564\u0576\u0565\u0580 Premium', description: '\u0531\u0574\u057d\u057f\u0565\u0580\u0564\u0561\u0574' },
+  },
+  15: {
+    en: { name: 'USA', description: 'Miami' },
+    ru: { name: '\u0421\u0428\u0410', description: '\u041c\u0430\u0439\u0430\u043c\u0438' },
+    am: { name: '\u0531\u0544\u0546', description: '\u0544\u0561\u0575\u0561\u0574\u056b' },
+  },
+};
+
 export default function LocationsPage({ onBack }: LocationsPageProps) {
   const { user, isLoading, error, isAuthenticated } = useUser();
   const { language, t } = useLanguage();
+  const { formatCurrency, currency } = useCurrency();
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLocationsLoading, setIsLocationsLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setIsLocationsLoading(false);
+        return;
+      }
       try {
+        setIsLocationsLoading(true);
         const data = await fetchAvailableLocations(user.id);
         if (mounted) {
           const filtered = Array.isArray(data) ? data.filter((loc) => !loc.hidden) : [];
@@ -27,13 +85,17 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
         }
       } catch {
         if (mounted) setLocations([]);
+      } finally {
+        if (mounted) {
+          setIsLocationsLoading(false);
+        }
       }
     };
     load();
     return () => {
       mounted = false;
     };
-  }, [user?.id, t]);
+  }, [user?.id]);
 
   const selectedIds = useMemo(
     () => locations.filter((loc) => loc.selected).map((loc) => loc.id),
@@ -42,6 +104,9 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
 
   const selectedCountText = useMemo(() => {
     const count = selectedIds.length;
+    if (count === 0) {
+      return t('locations.select_at_least_one');
+    }
     if (language === 'ru') {
       const last = count % 10;
       const lastTwo = count % 100;
@@ -54,48 +119,51 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
     return t('locations.selected_count', { count });
   }, [selectedIds.length, language, t]);
 
-  const baseTariff = user?.tariff || 0;
-  const locationsCost = locations
-    .filter((loc) => loc.selected)
-    .reduce((sum, loc) => sum + (loc.price || 0), 0);
-  const totalMonthly = baseTariff + locationsCost;
-  const formatCurrency = (valueRub: number) => `${valueRub}₽`;
+  const basePriceRub = 50;
+  const currencyCode = currency?.code || user?.currency?.code || 'RUB';
+  const currencyRate = Number(currency?.rate ?? user?.currency?.rate ?? 0);
 
-  const localizeName = (name?: string) => {
-    if (!name) return t('locations.unknown_location');
-    if (language === 'en') return name;
-    const key = name.trim().toLowerCase();
-    const map: Record<string, string> = {
-      'netherlands': 'Нидерланды',
-      'germany': 'Германия',
-      'usa': 'Америка',
-      'us': 'Америка',
-      'united states': 'Америка',
-      'america': 'Америка',
-      'russia': 'Россия',
-      'turkey': 'Турция',
-      'kazakhstan': 'Казахстан',
-      'france': 'Франция',
-    };
-    return map[key] || name;
+  const convertFromRub = (valueRub: number) => {
+    const raw = Number(valueRub) || 0;
+    if (!currencyRate || currencyCode === 'RUB') {
+      return raw;
+    }
+    return raw / currencyRate;
   };
 
-  const localizeDescription = (desc?: string) => {
-    if (!desc) return '';
-    if (language === 'en') return desc;
-    const key = desc.trim().toLowerCase();
-    const map: Record<string, string> = {
-      'amsterdam': 'Амстердам',
-      'new jersey': 'Нью-Джерси',
-      'frankfurt': 'Франкфурт',
-      'saint petersburg': 'Санкт-Петербург',
-      'st petersburg': 'Санкт-Петербург',
-      'istanbul': 'Стамбул',
-      'almaty': 'Алматы',
-      'paris': 'Париж',
-    };
-    return map[key] || desc;
+  const locationsCostRub = useMemo(
+    () =>
+      locations
+        .filter((loc) => loc.selected)
+        .reduce((sum, loc) => sum + (Number(loc.price) || 0), 0),
+    [locations]
+  );
+
+  const totalMonthlyRub = basePriceRub + locationsCostRub;
+  const formatFromRub = (valueRub: number) =>
+    formatCurrency(convertFromRub(valueRub));
+  const showDetails = !isLocationsLoading && locations.length > 0;
+
+  const getLocationName = (loc: LocationItem) => {
+    const localized = LOCATION_LOCALIZED[loc.id]?.[language];
+    const fallback =
+      localized ||
+      LOCATION_LOCALIZED[loc.id]?.en ||
+      LOCATION_LOCALIZED[loc.id]?.ru ||
+      LOCATION_LOCALIZED[loc.id]?.am;
+    return fallback?.name || loc.name || t('locations.unknown_location');
   };
+
+  const getLocationDescription = (loc: LocationItem) => {
+    const localized = LOCATION_LOCALIZED[loc.id]?.[language];
+    const fallback =
+      localized ||
+      LOCATION_LOCALIZED[loc.id]?.en ||
+      LOCATION_LOCALIZED[loc.id]?.ru ||
+      LOCATION_LOCALIZED[loc.id]?.am;
+    return fallback?.description || loc.description || '';
+  };
+
 
   const toggleLocation = (id: number) => {
     setLocations((prev) =>
@@ -118,8 +186,8 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
   if (isLoading) {
     return (
       <div className="locations-page loading">
-        <div className="loading-spinner">
-          <div className="spinner"></div>
+        <div className="locations-loading">
+          <span className="loading-spinner"></span>
           <p>{t('common.loading')}</p>
         </div>
       </div>
@@ -172,97 +240,111 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
         <p className="hero-subtitle">{t('locations.hero_subtitle')}</p>
       </div>
 
-      <div className="selected-count-section">
-        <div className="selected-badge">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-            <circle cx="12" cy="10" r="3"></circle>
-          </svg>
-          <span className="selected-badge-text">{selectedCountText}</span>
+      {showDetails && (
+        <div className="selected-count-section">
+          <div className={`selected-badge ${selectedIds.length === 0 ? 'empty' : ''}`}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+            <span className="selected-badge-text">{selectedCountText}</span>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="locations-grid">
-        {locations.map((loc) => (
-          <div
-            key={loc.id}
-            className={`location-card ${loc.selected ? 'selected' : ''}`}
-            onClick={() => toggleLocation(loc.id)}
-          >
-            <div className="location-header">
-              <div className="location-info">
-                <div className="location-flag">{loc.flag || '🏳️'}</div>
-                <div className="location-details">
-                  <h3>{localizeName(loc.name)}</h3>
-                  <p>{localizeDescription(loc.description)}</p>
+        {isLocationsLoading ? (
+          <div className="locations-loading">
+            <span className="loading-spinner"></span>
+            <p>{t('common.loading')}</p>
+          </div>
+        ) : (
+          locations.map((loc, index) => (
+            <div
+              key={loc.id}
+              className={`location-card ${loc.selected ? 'selected' : ''}`}
+              style={{ animationDelay: `${index * 0.04}s` }}
+              onClick={() => toggleLocation(loc.id)}
+            >
+              <div className="location-header">
+                <div className="location-info">
+                  <div className="location-flag">{loc.flag || '🏳️'}</div>
+                  <div className="location-details">
+                    <h3>{getLocationName(loc)}</h3>
+                    <p>{getLocationDescription(loc)}</p>
+                  </div>
+                </div>
+                <div className="location-checkbox">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
                 </div>
               </div>
-              <div className="location-checkbox">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
+              <div className="location-features">
+                <div className="location-feature">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="12" y1="1" x2="12" y2="23"></line>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                  </svg>
+                  <span className="location-feature-value">+{formatFromRub(loc.price || 0)}</span>
+                </div>
+                <div className="location-feature">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 3v18h18"></path>
+                    <path d="M18 9l-5 5-4-4-6 6"></path>
+                  </svg>
+                  <span className="location-feature-value">{loc.speed || 0} Gbps</span>
+                </div>
+                <div className="location-feature">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                  </svg>
+                  <span className="location-feature-value">99.9%</span>
+                </div>
               </div>
             </div>
-            <div className="location-features">
-              <div className="location-feature">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="12" y1="1" x2="12" y2="23"></line>
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                </svg>
-                <span className="location-feature-value">+{formatCurrency(loc.price || 0)}</span>
-              </div>
-              <div className="location-feature">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M3 3v18h18"></path>
-                  <path d="M18 9l-5 5-4-4-6 6"></path>
-                </svg>
-                <span className="location-feature-value">{loc.speed || 0} Gbps</span>
-              </div>
-              <div className="location-feature">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-                </svg>
-                <span className="location-feature-value">99.9%</span>
-              </div>
+          ))
+        )}
+      </div>
+
+      {showDetails && (
+        <>
+          <div className="pricing-summary">
+            <div className="pricing-title">{t('locations.pricing_title')}</div>
+            <div className="pricing-row">
+              <span className="pricing-label">{t('locations.base_tariff')}</span>
+              <span className="pricing-value">{formatFromRub(basePriceRub)}</span>
+            </div>
+            <div className="pricing-row">
+              <span className="pricing-label">{t('locations.selected_locations')}</span>
+              <span className="pricing-value">{selectedIds.length}</span>
+            </div>
+            <div className="pricing-row">
+              <span className="pricing-label">{t('locations.locations_cost')}</span>
+              <span className="pricing-value">{formatFromRub(locationsCostRub)}</span>
+            </div>
+            <div className="pricing-row">
+              <span className="pricing-label pricing-total-label">{t('locations.total_monthly')}</span>
+              <span className="pricing-value pricing-total">{formatFromRub(totalMonthlyRub)}</span>
             </div>
           </div>
-        ))}
-      </div>
 
-      <div className="pricing-summary">
-        <div className="pricing-title">{t('locations.pricing_title')}</div>
-        <div className="pricing-row">
-          <span className="pricing-label">{t('locations.base_tariff')}</span>
-          <span className="pricing-value">{formatCurrency(baseTariff)}</span>
-        </div>
-        <div className="pricing-row">
-          <span className="pricing-label">{t('locations.selected_locations')}</span>
-          <span className="pricing-value">{selectedIds.length}</span>
-        </div>
-        <div className="pricing-row">
-          <span className="pricing-label">{t('locations.locations_cost')}</span>
-          <span className="pricing-value">{formatCurrency(locationsCost)}</span>
-        </div>
-        <div className="pricing-row">
-          <span className="pricing-label pricing-total-label">{t('locations.total_monthly')}</span>
-          <span className="pricing-value pricing-total">{formatCurrency(totalMonthly)}</span>
-        </div>
-      </div>
-
-      <div className="bottom-actions">
-        <button
-          className="save-button"
-          onClick={handleSave}
-          disabled={selectedIds.length < 1 || isSaving}
-        >
-          <span>{t('locations.save_button')}</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        </button>
-        <div className="info-note">{t('locations.info_note')}</div>
-      </div>
+          <div className="bottom-actions">
+            <button
+              className="save-button"
+              onClick={handleSave}
+              disabled={selectedIds.length < 1 || isSaving}
+            >
+              <span>{t('locations.save_button')}</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+            <div className="info-note">{t('locations.info_note')}</div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

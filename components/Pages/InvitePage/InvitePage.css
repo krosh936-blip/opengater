@@ -1,0 +1,515 @@
+.invite-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.invite-page.loading {
+  min-height: 300px;
+}
+
+.invite-page .loading-container,
+.invite-page .error-container,
+.invite-page .auth-required {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.invite-mobile-header {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  padding-top: env(safe-area-inset-top);
+}
+
+.invite-page .back-button {
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.invite-page .header-title {
+  font-size: 18px;
+  font-weight: 600;
+  flex: 1;
+  text-align: center;
+}
+
+.invite-page .header-spacer {
+  width: 40px;
+}
+
+.invite-page .hero-section {
+  text-align: center;
+  margin-bottom: 32px;
+  animation: none;
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.invite-page .hero-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 24px;
+  background: linear-gradient(135deg, rgba(0, 122, 255, 0.1), rgba(52, 199, 89, 0.1));
+  backdrop-filter: blur(10px);
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.invite-page .hero-icon svg {
+  width: 32px;
+  height: 32px;
+  color: var(--primary);
+}
+
+.invite-page .hero-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.invite-page .hero-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding: 0 40px;
+}
+
+.invite-page .earnings-block {
+  background: rgba(26, 26, 29, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 22px 24px;
+  margin-bottom: 17px;
+  animation: none;
+}
+
+[data-theme="light"] .invite-page .earnings-block {
+  background: rgba(0, 0, 0, 0.02);
+  backdrop-filter: none;
+}
+
+.invite-page .earnings-header {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.invite-page .earnings-amount {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  animation: none;
+}
+
+.invite-page .progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(42, 42, 45, 0.5);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+[data-theme="light"] .invite-page .progress-bar {
+  background: var(--progress-bg);
+}
+
+.invite-page .progress-fill {
+  height: 100%;
+  background: var(--progress-fill);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.invite-page .referral-stats {
+  margin-bottom: 0;
+}
+
+.invite-page .stats-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.invite-page .stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.invite-page .stat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+}
+
+.invite-page .stat-dot.connected {
+  background: var(--text-primary);
+}
+
+.invite-page .stat-value {
+  color: var(--text-primary);
+  font-weight: 500;
+  animation: none;
+}
+
+.invite-page .code-section {
+  background: rgba(26, 26, 29, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 22px 24px;
+  margin-bottom: 20px;
+  animation: none;
+}
+
+[data-theme="light"] .invite-page .code-section {
+  background: rgba(0, 0, 0, 0.02);
+  backdrop-filter: none;
+}
+
+.invite-page .code-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 13px;
+}
+
+.invite-page .code-display {
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+  background: transparent;
+  backdrop-filter: none;
+  border-radius: 12px;
+  padding: 13px 12px;
+  gap: 8px;
+}
+
+[data-theme="light"] .invite-page .code-display {
+  background: transparent;
+}
+
+.invite-page .link-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+}
+
+.invite-page .loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--text-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+[data-theme="light"] .invite-page .loading-spinner {
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: var(--text-primary);
+}
+
+.invite-page .copy-icon {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+
+.invite-page .copy-icon:hover {
+  color: var(--text-secondary);
+}
+
+.invite-page .share-button {
+  width: 100%;
+  padding: 14px;
+  background: var(--button-bg);
+  color: var(--button-text);
+  border: none;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.2s;
+}
+
+.invite-page .share-button:active {
+  transform: scale(0.98);
+}
+
+.invite-page .referrals-section {
+  margin-bottom: 32px;
+  animation: none;
+}
+
+.invite-page .section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  animation: none;
+}
+
+.invite-page .section-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.invite-page .count-badge {
+  background: rgba(20, 20, 22, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+[data-theme="light"] .invite-page .count-badge,
+.light-theme .invite-page .count-badge {
+  background: rgba(0, 0, 0, 0.04);
+  backdrop-filter: none;
+  border: 1px solid var(--border);
+}
+
+.invite-page .referrals-card {
+  background: rgba(26, 26, 29, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: none;
+  border: none;
+  box-shadow: none;
+  transition: none;
+}
+
+[data-theme="light"] .invite-page .referrals-card,
+.light-theme .invite-page .referrals-card {
+  background: rgba(0, 0, 0, 0.02);
+  backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+}
+
+.invite-page .empty-state {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: 500;
+  padding: 40px 20px;
+}
+
+.invite-page .referrals-list {
+  width: 100%;
+  padding: 0;
+}
+
+.invite-page .referral-item {
+  display: flex;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  animation: none;
+}
+
+.invite-page .referral-item:hover {
+  background: transparent;
+  margin: 0;
+  padding: 16px 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.invite-page .referral-item:last-child {
+  border-bottom: none;
+}
+
+[data-theme="light"] .invite-page .referral-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.invite-page .referral-avatar {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  margin-right: 16px;
+  color: #fff;
+}
+
+.invite-page .referral-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.invite-page .referral-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+}
+
+.invite-page .referral-username {
+  font-size: 14px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.invite-page .referral-status {
+  text-align: right;
+}
+
+.invite-page .status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.invite-page .status-badge.active {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--success);
+}
+
+.invite-page .status-badge.pending {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+}
+
+.invite-page .referral-amount {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--success);
+}
+
+.invite-page .toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  padding: 12px 20px;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+  z-index: 9999;
+}
+
+[data-theme="light"] .invite-page .toast {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (max-width: 768px) {
+  .invite-mobile-header {
+    display: flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .invite-page .hero-title {
+    font-size: 24px;
+  }
+
+  .invite-page .hero-subtitle {
+    padding: 0 20px;
+  }
+}

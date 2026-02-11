@@ -1,111 +1,106 @@
-/* Home Page Styles - точная копия оригинальных стилей */
+/* Home Page styles synced with original layout */
 
-/* ОБНОВЛЕННЫЙ БЛОК БАЛАНСА */
 .balance-block {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 24px;
+  background: rgba(26, 26, 29, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
+  border: 1px solid transparent;
+  padding: 22px 24px;
   margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .balance-all {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  min-height: 93px;
 }
 
 .balance-header {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  margin-bottom: 8px;
 }
 
 .balance-container {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  width: 100%;
+  min-height: 42px;
 }
 
 .balance-left {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: baseline;
+  gap: 4px;
 }
 
 .balance-amount {
-  font-size: 40px;
-  font-weight: 700;
+  font-size: 34px;
+  font-weight: 650;
   color: var(--text-primary);
-  line-height: 1;
 }
 
-.currency-selector {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  height: 36px;
-  display: flex;
+.currency-symbol {
+  color: var(--text-secondary);
+  font-size: 13px;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  min-width: 60px;
+  padding: 4px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  opacity: 0;
+  transform: translateY(8px);
+  background: none;
+  border: none;
+  cursor: default;
 }
 
-.currency-selector:hover {
-  background: var(--surface-hover);
-}
-
-.currency-selector::after {
-  content: "▼";
-  font-size: 10px;
-  opacity: 0.6;
+.currency-symbol.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .deposit-button {
-  background: var(--primary);
-  color: white;
+  padding: 10px 17px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #000000;
   border: none;
-  border-radius: var(--radius-sm);
-  padding: 10px 20px;
-  font-size: 14px;
-  font-weight: 600;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 590;
   cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  height: 36px;
+  transition: transform 0.2s;
+  letter-spacing: -0.1px;
 }
 
-.deposit-button:hover {
-  background: var(--primary-hover);
+.deposit-button:active {
+  transform: scale(0.98);
 }
 
 .days-remaining-text {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-secondary);
+  margin-top: 8px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.days-remaining-text.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .balance-divider {
   height: 1px;
-  background: var(--border);
-  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 17px 0;
 }
 
 .quick-actions {
-  display: flex;
-  justify-content: space-around;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
 }
 
@@ -115,192 +110,169 @@
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  padding: 12px;
-  border-radius: var(--radius-md);
-  transition: all 0.2s ease;
-  flex: 1;
-  min-width: 0;
-}
-
-.action-item:hover {
-  background: var(--surface-hover);
+  border-radius: 12px;
+  transition: all 0.2s;
 }
 
 .action-icon {
-  width: 44px;
-  height: 44px;
-  background: var(--surface);
-  border-radius: var(--radius-md);
+  width: 48px;
+  height: 48px;
+  background: rgba(42, 42, 45, 0.9);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-primary);
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.action-icon:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .action-icon svg {
   width: 24px;
   height: 24px;
-  stroke: currentColor;
-}
-
-/* Специфичные стили для каждой иконки */
-.action-item:first-child .action-icon svg {
-  stroke: none;
-  fill: currentColor;
-}
-
-.action-item:nth-child(2) .action-icon svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.action-item:last-child .action-icon svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .action-label {
   font-size: 12px;
-  font-weight: 600;
   color: var(--text-secondary);
   text-align: center;
+  line-height: 1.2;
 }
 
-/* PROMO SLIDER - точные стили оригинала */
 .promo-slider {
   position: relative;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  border-radius: 28px;
   overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: var(--bg-secondary);
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .promo-slider-track {
   display: flex;
-  transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform;
-  transform: translateZ(0);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.promo-slider.dragging .promo-slider-track {
+  transition: none;
 }
 
 .promo-slide {
   min-width: 100%;
-  padding: 24px;
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
+  padding: 16px 20px 24px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
-  height: 140px;
-  flex-shrink: 0;
+  gap: 16px;
+  min-height: 100px;
+  position: relative;
+  cursor: pointer;
 }
 
 .promo-slide-stars {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 0L12.245 6.91H19.51L13.632 11.18L15.877 18.09L10 13.82L4.123 18.09L6.368 11.18L0.49 6.91H7.755L10 0Z' fill='white' fill-opacity='0.1'/%3E%3C/svg%3E");
-  background-size: 120px 120px;
-  opacity: 0.18;
+  inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.4) 0%, transparent 100%),
+    radial-gradient(2px 2px at 80% 20%, rgba(255, 255, 255, 0.3) 0%, transparent 100%),
+    radial-gradient(2px 2px at 70% 70%, rgba(255, 255, 255, 0.25) 0%, transparent 100%),
+    radial-gradient(3px 3px at 85% 45%, rgba(255, 255, 255, 0.35) 0%, transparent 100%),
+    radial-gradient(2px 2px at 15% 70%, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+  pointer-events: none;
 }
 
 .promo-slide-content {
   flex: 1;
-  z-index: 1;
+  z-index: 2;
+  max-width: 70%;
 }
 
 .promo-slide-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
-  color: white;
-  margin-bottom: 8px;
-  line-height: 1.2;
+  color: #fff;
+  line-height: 1.4;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .promo-slide-subtitle {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
   line-height: 1.4;
+  margin-top: 6px;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 .promo-slide-icon {
-  width: 80px;
-  height: 80px;
-  flex-shrink: 0;
-  z-index: 1;
+  width: 48px;
+  height: 48px;
+  z-index: 2;
+  align-self: center;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
 }
 
 .promo-slider-dots {
   position: absolute;
-  bottom: 16px;
-  left: 0;
-  right: 0;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  justify-content: center;
-  gap: 8px;
-  z-index: 2;
+  gap: 6px;
+  z-index: 20;
 }
 
 .promo-slider-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.35);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s;
 }
 
 .promo-slider-dot.active {
-  background: white;
-  transform: scale(1.2);
+  width: 20px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.9);
 }
 
-/* SECTION HEADER */
 .section-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin: 32px 0 16px 0;
+  gap: 12px;
+  margin-bottom: 12px;
+  animation: fadeInUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .section-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .count-badge {
-  background: var(--surface);
-  color: var(--text-secondary);
-  font-size: 12px;
+  background: rgba(20, 20, 22, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 13px;
   font-weight: 600;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  min-width: 24px;
-  text-align: center;
 }
 
-/* БЛОК УСТАНОВКИ */
 .install-block {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  margin-bottom: 20px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.install-block:hover {
-  border-color: var(--primary);
+  background: rgba(26, 26, 29, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 20px;
+  border: 1px solid transparent;
+  padding: 16px 16px;
+  margin: 0 0 20px 0;
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .install-content {
@@ -310,22 +282,37 @@
 }
 
 .install-icon {
-  width: 44px;
-  height: 44px;
-  background: var(--surface);
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary);
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.install-icon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.1));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.install-block:hover .install-icon::before {
+  opacity: 1;
 }
 
 .install-icon svg {
   width: 20px;
   height: 20px;
-  stroke: currentColor;
-  stroke-width: 2;
+  color: #007AFF;
+  z-index: 1;
+  position: relative;
 }
 
 .install-text {
@@ -333,293 +320,239 @@
 }
 
 .install-title {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.3;
   color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.install-text .action-label {
-  font-size: 12px;
-  color: var(--text-secondary);
+  margin: 0 0 6px;
+  letter-spacing: -0.2px;
 }
 
 .install-button {
-  background: var(--primary);
-  color: white;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #000000;
   border: none;
-  border-radius: var(--radius-sm);
-  padding: 10px 18px;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 590;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   white-space: nowrap;
+  letter-spacing: -0.1px;
 }
 
 .install-button:hover {
-  background: var(--primary-hover);
+  transform: scale(1.02);
 }
 
-/* БЛОК УПРАВЛЕНИЯ */
+.install-button:active {
+  transform: scale(0.98);
+}
+
 .referrals-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 0;
-  overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: all 0.2s;
+  border-radius: 24px;
+  border: 1px solid transparent;
+  background: rgba(26, 26, 29, 0.6);
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .referrals-list {
-  display: flex;
-  flex-direction: column;
+  width: 100%;
+  padding: 0 20px;
 }
 
 .referral-item {
   display: flex;
   align-items: center;
-  padding: 20px 24px;
-  gap: 16px;
-  border-bottom: 1px solid var(--border);
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+}
+
+.referral-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+  margin: 0 -16px;
+  padding: 16px 16px;
 }
 
 .referral-item:last-child {
   border-bottom: none;
 }
 
-.referral-item:hover {
-  background: var(--surface-hover);
-}
-
 .referral-avatar {
-  width: 44px;
-  height: 44px;
-  background: var(--surface);
-  border-radius: var(--radius-md);
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-primary);
+  margin-right: 12px;
+  background: rgba(42, 42, 45, 0.5);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
   flex-shrink: 0;
 }
 
 .referral-avatar svg {
-  width: 22px;
-  height: 22px;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  fill: none;
-}
-
-.referral-avatar svg circle[fill="currentColor"] {
-  fill: currentColor;
+  stroke: rgba(255, 255, 255, 0.9);
 }
 
 .referral-info {
   flex: 1;
-  min-width: 0;
 }
 
 .referral-name {
-  font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.loading-field {
-  font-size: 14px;
-  color: var(--text-secondary);
-  background: var(--surface);
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  display: inline-block;
-  border: 1px solid var(--border);
+  margin-bottom: 6px;
+  font-size: 15px;
 }
 
 .referral-status {
-  flex-shrink: 0;
+  text-align: right;
 }
 
 .status-badge {
-  background: var(--surface);
-  color: var(--text-secondary);
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
   font-size: 12px;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  transition: all 0.2s ease;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
 }
 
-.referral-item:hover .status-badge {
-  background: var(--surface-hover);
-  border-color: var(--primary);
-  color: var(--primary);
+.loading-field {
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  min-height: 16px;
+  display: flex;
+  align-items: center;
+  line-height: 1.2;
 }
 
-/* Анимации */
+.loading-field.fade-out {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.loading-field.fade-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .fade-in {
   animation: fadeIn 0.3s ease;
 }
 
 @keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
   from {
     opacity: 0;
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
-/* Адаптивность */
-@media (max-width: 768px) {
-  .balance-container {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 20px;
-  }
-  
-  .deposit-button {
-    width: 100%;
-    text-align: center;
-  }
-  
-  .quick-actions {
-    flex-wrap: nowrap;
-    justify-content: space-between;
-    overflow: visible;
-    padding-bottom: 0;
-  }
-  
-  .action-item {
-    flex: 1 1 0;
-    max-width: none;
-  }
-
-  .action-icon {
-    width: 40px;
-    height: 40px;
-  }
-  
-  .promo-slide {
-    flex-direction: column;
-    height: auto;
-    text-align: center;
-    padding: 32px 24px;
-  }
-  
-  .promo-slide-icon {
-    width: 60px;
-    height: 60px;
-  }
-  
-  .install-content {
-    flex-direction: row;
-    text-align: left;
-    gap: 12px;
-  }
-  
-  .install-button {
-    width: auto;
-  }
-}
-
-@media (max-width: 640px) {
-  .balance-block {
-    padding: 16px;
-    border-radius: 16px;
-  }
-
-  .balance-header {
-    font-size: 12px;
-    letter-spacing: 0.4px;
-  }
-
+@media (min-width: 768px) {
   .balance-amount {
-    font-size: 32px;
+    font-size: 40px;
   }
+}
 
-  .currency-selector {
-    height: 32px;
-    padding: 6px 10px;
-    font-size: 13px;
-  }
+.light-theme .balance-block,
+[data-theme="light"] .balance-block {
+  background: rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
 
-  .deposit-button {
-    height: 34px;
-    padding: 8px 16px;
-    font-size: 13px;
-  }
-  
-  .action-item {
-    flex: 1 1 0;
-    max-width: none;
-    padding: 8px 6px;
-    border-radius: 12px;
-  }
+.light-theme .install-block,
+[data-theme="light"] .install-block {
+  background: rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
 
-  .quick-actions {
-    gap: 8px;
-  }
+.light-theme .referrals-card,
+[data-theme="light"] .referrals-card {
+  background: rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
 
-  .action-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 12px;
-  }
+.light-theme .action-icon,
+[data-theme="light"] .action-icon {
+  background: rgba(0, 0, 0, 0.06);
+}
 
-  .action-label {
-    font-size: 11px;
-  }
+.light-theme .action-icon svg,
+[data-theme="light"] .action-icon svg {
+  color: rgba(0, 0, 0, 0.8);
+}
 
-  .promo-slider {
-    border-radius: 16px;
-  }
+.light-theme .referral-avatar,
+[data-theme="light"] .referral-avatar {
+  background: rgba(0, 0, 0, 0.06);
+}
 
-  .install-block {
-    padding: 12px;
-    border-radius: 14px;
-  }
+.light-theme .referral-avatar svg,
+[data-theme="light"] .referral-avatar svg {
+  stroke: rgba(0, 0, 0, 0.8);
+}
 
-  .install-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-  }
+.light-theme .status-badge,
+[data-theme="light"] .status-badge {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.6);
+}
 
-  .install-title {
-    font-size: 16px;
-  }
+.light-theme .deposit-button,
+[data-theme="light"] .deposit-button {
+  background: #007AFF;
+  color: #FFFFFF;
+}
 
-  .install-text .action-label {
-    font-size: 12px;
-  }
+.light-theme .count-badge,
+[data-theme="light"] .count-badge {
+  background: var(--bg-secondary);
+  backdrop-filter: none;
+  border: 1px solid var(--border);
+}
 
-  .install-button {
-    height: 34px;
-    padding: 8px 16px;
-    font-size: 13px;
-  }
+.light-theme .install-button,
+[data-theme="light"] .install-button {
+  background: #007AFF;
+  color: #FFFFFF;
+}
 
-  .referrals-card {
-    border-radius: 16px;
-  }
-  
-  .referral-item {
-    flex-direction: row;
-    text-align: left;
-    gap: 12px;
-    padding: 14px 16px;
-  }
-  
-  .referral-info {
-    width: 100%;
-  }
-  
-  .status-badge {
-    width: auto;
-  }
+.light-theme .install-button:hover,
+[data-theme="light"] .install-button:hover {
+  background: #0051D5;
+}
+
+.light-theme .install-icon,
+[data-theme="light"] .install-icon {
+  background: linear-gradient(135deg, rgba(0, 122, 255, 0.12), rgba(0, 122, 255, 0.05));
+}
+
+.light-theme .install-icon svg,
+[data-theme="light"] .install-icon svg {
+  stroke: rgba(0, 0, 0, 0.8);
+}
+
+.light-theme .referral-item,
+[data-theme="light"] .referral-item {
+  border-bottom: 1px solid var(--border);
 }

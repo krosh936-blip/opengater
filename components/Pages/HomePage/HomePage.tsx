@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import './HomePage.css';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUser } from '@/contexts/UserContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { fetchAvailableLocations, LocationItem } from '@/lib/api'; // Добавляем импорт
 
 type HomePageProps = {
@@ -14,44 +15,101 @@ export default function HomePage({ onNavigate }: HomePageProps) {
   const sliderRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const autoplayRef = useRef<NodeJS.Timeout>();
-  const [currentCurrency, setCurrentCurrency] = useState<'RUB' | 'USD'>('RUB');
   const [locations, setLocations] = useState<LocationItem[]>([]);
-  const BASE_EXCHANGE_RATE = 0.011; // 1 RUB = 0.011 USD (как в оригинале)
+  const [isMobile, setIsMobile] = useState(false);
+  const { currency, formatNumber } = useCurrency();
 
   // Используем хук для получения данных пользователя
   const { user, isLoading, error, isAuthenticated } = useUser();
   const { language, t } = useLanguage();
 
-  // Данные для промо-слайдера (остаются без изменений)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const handleChange = () => setIsMobile(mediaQuery.matches);
+    handleChange();
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleChange);
+    } else {
+      mediaQuery.addListener(handleChange);
+    }
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleChange);
+      } else {
+        mediaQuery.removeListener(handleChange);
+      }
+    };
+  }, []);
+
+  // Данные для промо-слайдера
   const promoSlides = [
     {
       id: 1,
+      type: 'raffle',
       title: t('promo.raffle_title'),
       subtitle: t('promo.raffle_subtitle'),
       background: 'linear-gradient(135deg, #1a5a2e 0%, #0d3d1a 50%, #061f0d 100%)',
-      onClick: () => handleRaffleClick()
+      onClick: () => handleRaffleClick(),
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" style={{ width: '100%', height: '100%' }}>
+          <path d="M20 12V22H4V12" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+          <path d="M22 7H2V12H22V7Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="rgba(255,255,255,0.15)"></path>
+          <path d="M12 22V7" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+          <path d="M12 7H7.5C6.12 7 5 5.88 5 4.5C5 3.12 6.12 2 7.5 2C10 2 12 7 12 7Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+          <path d="M12 7H16.5C17.88 7 19 5.88 19 4.5C19 3.12 17.88 2 16.5 2C14 2 12 7 12 7Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+        </svg>
+      )
     },
     {
       id: 2,
+      type: 'invite',
       title: t('promo.invite_title'),
       subtitle: t('promo.invite_subtitle'),
       background: 'linear-gradient(135deg, #1a4a4a 0%, #2d5a5a 50%, #3a6868 100%)',
-      onClick: () => handleReferral()
+      onClick: () => handleReferral(),
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" style={{ width: '100%', height: '100%' }}>
+          <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+          <circle cx="9" cy="7" r="4" stroke="white" strokeWidth="1.5" fill="rgba(255,255,255,0.15)"></circle>
+          <path d="M23 21V19C22.9993 18.1137 22.7044 17.2528 22.1614 16.5523C21.6184 15.8519 20.8581 15.3516 20 15.13" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+          <path d="M16 3.13C16.8604 3.35031 17.623 3.85071 18.1676 4.55232C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89318 18.7122 8.75608 18.1676 9.45769C17.623 10.1593 16.8604 10.6597 16 10.88" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+        </svg>
+      )
     },
     {
       id: 3,
+      type: 'xhttp',
       title: t('promo.xhttp_title'),
       subtitle: t('promo.xhttp_subtitle'),
       background: 'linear-gradient(135deg, #2d4a6a 0%, #3d5a7a 50%, #4a6888 100%)',
-      onClick: () => handleDeposit()
+      onClick: () => handleDeposit(),
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" style={{ width: '100%', height: '100%' }}>
+          <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.5" fill="rgba(255,255,255,0.15)"></circle>
+          <path d="M12 7V17" stroke="white" strokeWidth="1.5" strokeLinecap="round"></path>
+          <path d="M15 9.5C15 8.12 13.657 7.5 12 7.5C10.343 7.5 9 8.12 9 9.5C9 10.88 10.343 11.5 12 11.5C13.657 11.5 15 12.62 15 14C15 15.38 13.657 16.5 12 16.5C10.343 16.5 9 15.38 9 14" stroke="white" strokeWidth="1.5" strokeLinecap="round"></path>
+        </svg>
+      )
     }
   ];
 
+  const visibleSlides = isMobile
+    ? promoSlides.filter((slide) => slide.type !== 'raffle')
+    : promoSlides;
+
+  useEffect(() => {
+    if (currentSlide >= visibleSlides.length) {
+      setCurrentSlide(0);
+    }
+  }, [currentSlide, visibleSlides.length]);
+
   // Автопрокрутка слайдера
   useEffect(() => {
+    if (visibleSlides.length < 2) return;
     const startAutoplay = () => {
       autoplayRef.current = setInterval(() => {
-        setCurrentSlide((prev) => (prev + 1) % promoSlides.length);
+        setCurrentSlide((prev) => (prev + 1) % visibleSlides.length);
       }, 5000);
     };
 
@@ -62,7 +120,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
         clearInterval(autoplayRef.current);
       }
     };
-  }, [promoSlides.length]);
+  }, [visibleSlides.length]);
 
   // Обновление позиции слайдера (плавность задается в CSS)
   useEffect(() => {
@@ -77,6 +135,10 @@ export default function HomePage({ onNavigate }: HomePageProps) {
   };
 
   const handleReferral = () => {
+    if (onNavigate) {
+      onNavigate('invite');
+      return;
+    }
     console.log('Клик по реферальной программе');
   };
 
@@ -86,6 +148,10 @@ export default function HomePage({ onNavigate }: HomePageProps) {
 
   const handleInvite = () => {
     console.log('Пригласить друзей');
+    if (onNavigate) {
+      onNavigate('invite');
+      return;
+    }
     if (user?.web_referral_link) {
       window.open(user.web_referral_link, '_blank');
     }
@@ -100,6 +166,10 @@ export default function HomePage({ onNavigate }: HomePageProps) {
   };
 
   const handleInstall = () => {
+    if (onNavigate) {
+      onNavigate('install');
+      return;
+    }
     console.log('Установка и настройка');
   };
 
@@ -123,15 +193,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     console.log('Пополнить баланс');
   };
 
-  const handleCurrencyChange = () => {
-    setCurrentCurrency((prev) => (prev === 'USD' ? 'RUB' : 'USD'));
-  };
-
-  useEffect(() => {
-    const initial = user?.currency?.code === 'USD' ? 'USD' : 'RUB';
-    setCurrentCurrency(initial);
-  }, [user?.currency?.code]);
-
   useEffect(() => {
     let mounted = true;
     const loadLocations = async () => {
@@ -151,20 +212,10 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     return () => {
       mounted = false;
     };
-  }, [user?.id]);
+  }, [user?.id, user?.currency?.code]);
 
-  const balanceInRub = (() => {
-    if (!user) return 0;
-    if (user.currency?.code === 'USD') {
-      return user.balance / BASE_EXCHANGE_RATE;
-    }
-    return user.balance;
-  })();
-
-  const displayAmount =
-    currentCurrency === 'USD'
-      ? (balanceInRub * BASE_EXCHANGE_RATE).toFixed(2)
-      : balanceInRub.toFixed(2);
+  const balanceAmount = user?.balance ?? 0;
+  const displayAmount = formatNumber(balanceAmount);
 
   const selectedLocationFlags = locations
     .filter((loc) => loc.selected)
@@ -215,8 +266,11 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     if (autoplayRef.current) {
       clearInterval(autoplayRef.current);
     }
+    if (visibleSlides.length < 2) {
+      return;
+    }
     autoplayRef.current = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % promoSlides.length);
+      setCurrentSlide((prev) => (prev + 1) % visibleSlides.length);
     }, 5000);
   };
 
@@ -272,13 +326,12 @@ export default function HomePage({ onNavigate }: HomePageProps) {
               >
                 {displayAmount || '0.00'}
               </span>
-              <button 
-                className="currency-selector visible" 
-                id="currency-selector"
-                onClick={handleCurrencyChange}
+              <span
+                className="currency-symbol visible"
+                id="currency-symbol"
               >
-                <span id="currency">{currentCurrency}</span>
-              </button>
+                {currency.code}
+              </span>
             </div>
             <button className="deposit-button" onClick={handleDepositClick}>{t('balance.deposit')}</button>
           </div>
@@ -334,75 +387,28 @@ export default function HomePage({ onNavigate }: HomePageProps) {
           id="promo-slider-track"
           ref={trackRef}
           style={{
-            transform: `translate3d(-${currentSlide * 100}%, 0, 0)`,
-            transition: 'transform 0.9s cubic-bezier(0.16, 1, 0.3, 1)'
+            transform: `translateX(-${currentSlide * 100}%)`,
+            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
         >
-          {/* Slide 1: Raffle */}
-          <div 
-            className="promo-slide" 
-            style={{ background: 'linear-gradient(135deg, #1a5a2e 0%, #0d3d1a 50%, #061f0d 100%)' }}
-            onClick={handleRaffleClick}
-          >
-            <div className="promo-slide-stars"></div>
-            <div className="promo-slide-content">
-              <div className="promo-slide-title">{promoSlides[2].title}</div>
-              <div className="promo-slide-subtitle">{promoSlides[2].subtitle}</div>
+          {visibleSlides.map((slide) => (
+            <div
+              key={slide.id}
+              className="promo-slide"
+              style={{ background: slide.background }}
+              onClick={slide.onClick}
+            >
+              <div className="promo-slide-stars"></div>
+              <div className="promo-slide-content">
+                <div className="promo-slide-title">{slide.title}</div>
+                <div className="promo-slide-subtitle">{slide.subtitle}</div>
+              </div>
+              <div className="promo-slide-icon">{slide.icon}</div>
             </div>
-            <div className="promo-slide-icon">
-              <svg viewBox="0 0 24 24" fill="none" style={{ width: '100%', height: '100%' }}>
-                <path d="M20 12V22H4V12" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-                <path d="M22 7H2V12H22V7Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="rgba(255,255,255,0.15)"></path>
-                <path d="M12 22V7" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-                <path d="M12 7H7.5C6.12 7 5 5.88 5 4.5C5 3.12 6.12 2 7.5 2C10 2 12 7 12 7Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-                <path d="M12 7H16.5C17.88 7 19 5.88 19 4.5C19 3.12 17.88 2 16.5 2C14 2 12 7 12 7Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-              </svg>
-            </div>
-          </div>
-          
-          {/* Slide 2: Referral */}
-          <div 
-            className="promo-slide" 
-            style={{ background: 'linear-gradient(135deg, #1a4a4a 0%, #2d5a5a 50%, #3a6868 100%)' }}
-            onClick={handleReferral}
-          >
-            <div className="promo-slide-stars"></div>
-            <div className="promo-slide-content">
-              <div className="promo-slide-title">{promoSlides[1].title}</div>
-              <div className="promo-slide-subtitle">{promoSlides[1].subtitle}</div>
-            </div>
-            <div className="promo-slide-icon">
-              <svg viewBox="0 0 24 24" fill="none" style={{ width: '100%', height: '100%' }}>
-                <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-                <circle cx="9" cy="7" r="4" stroke="white" strokeWidth="1.5" fill="rgba(255,255,255,0.15)"></circle>
-                <path d="M23 21V19C22.9993 18.1137 22.7044 17.2528 22.1614 16.5523C21.6184 15.8519 20.8581 15.3516 20 15.13" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-                <path d="M16 3.13C16.8604 3.35031 17.623 3.85071 18.1676 4.55232C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89318 18.7122 8.75608 18.1676 9.45769C17.623 10.1593 16.8604 10.6597 16 10.88" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-              </svg>
-            </div>
-          </div>
-          
-          {/* Slide 3: Deposit */}
-          <div 
-            className="promo-slide" 
-            style={{ background: 'linear-gradient(135deg, #2d4a6a 0%, #3d5a7a 50%, #4a6888 100%)' }}
-            onClick={handleDeposit}
-          >
-            <div className="promo-slide-stars"></div>
-            <div className="promo-slide-content">
-              <div className="promo-slide-title">{promoSlides[0].title}</div>
-              <div className="promo-slide-subtitle">{promoSlides[0].subtitle}</div>
-            </div>
-            <div className="promo-slide-icon">
-              <svg viewBox="0 0 24 24" fill="none" style={{ width: '100%', height: '100%' }}>
-                <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.5" fill="rgba(255,255,255,0.15)"></circle>
-                <path d="M12 7V17" stroke="white" strokeWidth="1.5" strokeLinecap="round"></path>
-                <path d="M15 9.5C15 8.12 13.657 7.5 12 7.5C10.343 7.5 9 8.12 9 9.5C9 10.88 10.343 11.5 12 11.5C13.657 11.5 15 12.62 15 14C15 15.38 13.657 16.5 12 16.5C10.343 16.5 9 15.38 9 14" stroke="white" strokeWidth="1.5" strokeLinecap="round"></path>
-              </svg>
-            </div>
-          </div>
+          ))}
         </div>
         <div className="promo-slider-dots" id="promo-slider-dots">
-          {promoSlides.map((_, index) => (
+          {visibleSlides.map((_, index) => (
             <div 
               key={index}
               className={`promo-slider-dot ${currentSlide === index ? 'active' : ''}`}

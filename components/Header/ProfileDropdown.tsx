@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUser } from '@/contexts/UserContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
 
-// Тип для данных пользователя
+// РўРёРї РґР»СЏ РґР°РЅРЅС‹С… РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
 interface UserData {
   name: string;
   email: string;
@@ -17,7 +18,7 @@ interface ProfileDropdownProps {
   userData?: UserData;
 }
 
-// Заглушка данных (будет заменена на данные из БД)
+// Р—Р°РіР»СѓС€РєР° РґР°РЅРЅС‹С… (Р±СѓРґРµС‚ Р·Р°РјРµРЅРµРЅР° РЅР° РґР°РЅРЅС‹Рµ РёР· Р‘Р”)
 const DEFAULT_USER_DATA: UserData = {
   name: '',
   email: '',
@@ -31,11 +32,14 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   userData = DEFAULT_USER_DATA
 }) => {
   const { theme, toggleTheme } = useTheme();
-  const { toggleLanguage, t } = useLanguage();
+  const { language, setLanguage, languages, t } = useLanguage();
   const { logout } = useUser();
+  const { currency, currencies, setCurrencyCode } = useCurrency();
   const [dropdownState, setDropdownState] = useState<'closed' | 'active'>('closed');
+  const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
+  const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   
-  // Генерация инициалов
+  // Р“РµРЅРµСЂР°С†РёСЏ РёРЅРёС†РёР°Р»РѕРІ
   const getInitials = (name: string): string => {
     if (!name || name.trim() === '') return '?';
     return name
@@ -50,10 +54,11 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   const subscriptionText = userData.subscriptionActive
     ? t('profile.subscription_active')
     : t('profile.subscription_inactive');
-  const displayEmail = userData.email || 'Не указан';
+  const displayEmail = userData.email || 'РќРµ СѓРєР°Р·Р°РЅ';
   const displayUid = userData.uid || '-----';
+  const currentCurrency = currency.code;
   
-  // Синхронизация с isOpen
+  // РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ СЃ isOpen
   useEffect(() => {
     if (isOpen && dropdownState === 'closed') {
       setDropdownState('active');
@@ -64,19 +69,39 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       return () => clearTimeout(timer);
     }
   }, [isOpen, dropdownState]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsCurrencyOpen(false);
+      setIsLanguageOpen(false);
+    }
+  }, [isOpen]);
   
   const handleClose = () => {
     onClose();
   };
   
-  const copyUid = () => {
-    if (userData.uid) {
-      navigator.clipboard.writeText(userData.uid);
+  const copyUid = async () => {
+    if (!userData.uid) return;
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(userData.uid);
+        return;
+      }
+      throw new Error('Clipboard unavailable');
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = userData.uid;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
     }
   };
   
-  const showLanguageSelector = () => {
-    toggleLanguage();
+  const handleLanguageToggle = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    setIsLanguageOpen((prev) => !prev);
   };
   
   const handleLogout = (event?: React.MouseEvent<HTMLAnchorElement>) => {
@@ -90,14 +115,33 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
     toggleTheme();
   };
 
+  const handleCurrencyToggle = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    setIsCurrencyOpen((prev) => !prev);
+  };
+
+  const handleSelectCurrency = async (code: string) => {
+    await setCurrencyCode(code);
+    setIsCurrencyOpen(false);
+  };
+
+  const handleSelectLanguage = (code: string) => {
+    setLanguage(code as typeof language);
+    setIsLanguageOpen(false);
+  };
+
+  const currentLanguageLabel =
+    languages.find((item) => item.code === language)?.native || t('language.name');
+
   if (dropdownState === 'closed') {
     return null;
   }
 
   const dropdownClass = isOpen ? 'active' : 'closing';
+  const dropdownClasses = `profile-dropdown ${dropdownClass}${isCurrencyOpen ? ' currency-open' : ''}`;
 
   return (
-    <div className={`profile-dropdown ${dropdownClass}`} id="profileDropdown">
+    <div className={dropdownClasses} id="profileDropdown">
       <div className="profile-menu-header">
         <button className="profile-menu-close" onClick={handleClose}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -114,12 +158,12 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
               {displayEmail}
             </div>
             <div className="profile-uid">
-              ID · <span id="dropdownUid">{displayUid}</span>
+              ID: <span id="dropdownUid">{displayUid}</span>
               <button 
                 className="copy-uid-btn" 
                 onClick={copyUid}
                 disabled={!userData.uid}
-                title="Скопировать ID"
+                title="РЎРєРѕРїРёСЂРѕРІР°С‚СЊ ID"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -142,18 +186,45 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       <div className="profile-menu-divider"></div>
 
       <div className="profile-menu-content">
-        <div className="profile-menu-item with-arrow" onClick={showLanguageSelector}>
-          <div className="profile-menu-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-            </svg>
+        <div className="language-dropdown-wrapper">
+          <div className="profile-menu-item with-arrow" onClick={handleLanguageToggle}>
+            <div className="profile-menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+              </svg>
+            </div>
+            <span data-i18n="profile.language" className="translated">{t('profile.language')}</span>
+            <span className="profile-menu-item-value" id="dropdown-language-display">
+              {currentLanguageLabel}
+            </span>
           </div>
-          <span data-i18n="profile.language" className="translated">{t('profile.language')}</span>
-          <span className="profile-menu-item-value" id="dropdown-language-display">
-            {t('language.name')}
-          </span>
+          {isLanguageOpen && (
+            <div className="language-dropdown">
+              <div className="language-options">
+                {languages.map((item) => {
+                  const isSelected = item.code === language;
+                  return (
+                    <button
+                      key={item.code}
+                      type="button"
+                      className={`language-option ${isSelected ? 'selected' : ''}`}
+                      onClick={() => handleSelectLanguage(item.code)}
+                    >
+                      <span className="language-option-flag">{item.flag}</span>
+                      <span className="language-option-name">{item.native}</span>
+                      {isSelected && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="language-option-check">
+                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path>
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="profile-menu-item" onClick={handleThemeToggle}>
@@ -170,6 +241,52 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
               <div className="theme-toggle-slider"></div>
             </div>
           </div>
+        </div>
+
+        <div className="currency-dropdown-wrapper">
+          <div className="profile-menu-item" onClick={handleCurrencyToggle}>
+            <div className="profile-menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="1" x2="12" y2="23"></line>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+            </div>
+            <span data-i18n="profile.currency" className="translated">{t('profile.currency')}</span>
+            <span className="profile-menu-item-value">{currentCurrency}</span>
+          </div>
+          {isCurrencyOpen && (
+            <div className="currency-dropdown">
+              <div className="currency-options">
+                {currencies.map((item) => {
+                  const isSelected = item.code === currentCurrency;
+                  const flag = item.code === 'USD'
+                    ? '🇺🇸'
+                    : item.code === 'AMD'
+                    ? '🇦🇲'
+                    : item.code === 'EUR'
+                    ? '🇪🇺'
+                    : '🇷🇺';
+                  return (
+                    <button
+                      key={item.code}
+                      type="button"
+                      className={`currency-option ${isSelected ? 'selected' : ''}`}
+                      onClick={() => handleSelectCurrency(item.code)}
+                    >
+                      <span className="currency-flag">{flag}</span>
+                      <span className="currency-code">{item.code}</span>
+                      <span className="currency-symbol">{item.symbol || item.code}</span>
+                      {isSelected && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="currency-check">
+                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path>
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="profile-menu-divider"></div>
@@ -190,3 +307,5 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
 };
 
 export default ProfileDropdown;
+
+

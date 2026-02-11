@@ -1,18 +1,21 @@
-'use client'
-import React, { useState } from 'react';
+﻿'use client'
+import React, { useEffect, useState } from 'react';
 import './Sidebar.css';
 import SidebarSection from './SidebarSection';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-// Импортируем компоненты страниц
+// РРјРїРѕСЂС‚РёСЂСѓРµРј РєРѕРјРїРѕРЅРµРЅС‚С‹ СЃС‚СЂР°РЅРёС†
 import HomePage from '../Pages/HomePage/HomePage';
 import SubscriptionPage from '../Pages/SubscriptionPage/SubscriptionPage';
 import LocationsPage from '../Pages/LocationsPage/LocationsPage';
 import DevicesPage from '../Pages/DevicesPage/DevicesPage';
-// Другие страницы импортируйте по мере создания
+import InvitePage from '../Pages/InvitePage/InvitePage';
+import HelpPage from '../Pages/HelpPage/HelpPage';
+import InstallPage from '../Pages/InstallPage/InstallPage';
+// Р”СЂСѓРіРёРµ СЃС‚СЂР°РЅРёС†С‹ РёРјРїРѕСЂС‚РёСЂСѓР№С‚Рµ РїРѕ РјРµСЂРµ СЃРѕР·РґР°РЅРёСЏ
 
-// Типы для навигационных элементов
+// РўРёРїС‹ РґР»СЏ РЅР°РІРёРіР°С†РёРѕРЅРЅС‹С… СЌР»РµРјРµРЅС‚РѕРІ
 export type NavItemType = {
   id: string;
   label: string;
@@ -27,15 +30,32 @@ export type SidebarSectionType = {
   items: NavItemType[];
 };
 
-// Типы для страниц
+// РўРёРїС‹ РґР»СЏ СЃС‚СЂР°РЅРёС†
 type PageType = 'home' | 'subscription' | 'invite' | 'raffle' | 'locations' | 'devices' | 'help' | 'install';
+const ACTIVE_PAGE_STORAGE_KEY = 'opengater_active_page';
+const pageTypes: PageType[] = ['home', 'subscription', 'invite', 'raffle', 'locations', 'devices', 'help', 'install'];
+
+const isPageType = (value: string): value is PageType => pageTypes.includes(value as PageType);
+
 
 const Sidebar: React.FC = () => {
   const { theme } = useTheme();
   const { t } = useLanguage();
-  const [activeItem, setActiveItem] = useState<PageType>('home'); // Меняем на 'home' как стартовую страницу
+  const [activeItem, setActiveItem] = useState<PageType>('home'); // default start page
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem(ACTIVE_PAGE_STORAGE_KEY);
+    if (stored && isPageType(stored)) {
+      setActiveItem(stored);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(ACTIVE_PAGE_STORAGE_KEY, activeItem);
+  }, [activeItem]);
   
-  // Функция рендера активной страницы
+  // Р¤СѓРЅРєС†РёСЏ СЂРµРЅРґРµСЂР° Р°РєС‚РёРІРЅРѕР№ СЃС‚СЂР°РЅРёС†С‹
   const renderActivePage = () => {
     switch (activeItem) {
       case 'home':
@@ -43,7 +63,7 @@ const Sidebar: React.FC = () => {
       case 'subscription':
         return <SubscriptionPage />;
       case 'invite':
-        return <div className="page-placeholder">{t('nav.invite')} ({t('common.in_development')})</div>;
+        return <InvitePage onBack={() => handleNavClick('home')} />;
       case 'raffle':
         return <div className="page-placeholder">{t('nav.raffle')} ({t('common.in_development')})</div>;
       case 'locations':
@@ -51,21 +71,21 @@ const Sidebar: React.FC = () => {
       case 'devices':
         return <DevicesPage onBack={() => handleNavClick('home')} />;
       case 'help':
-        return <div className="page-placeholder">{t('nav.help')} ({t('common.in_development')})</div>;
+        return <HelpPage />;
       case 'install':
-        return <div className="page-placeholder">{t('nav.install')} ({t('common.in_development')})</div>;
+        return <InstallPage onBack={() => handleNavClick('home')} />;
       default:
-        return <HomePage />; // По умолчанию показываем HomePage
+        return <HomePage />; // РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РїРѕРєР°Р·С‹РІР°РµРј HomePage
     }
   };
   
-  // Обработчик клика по навигации
+  // РћР±СЂР°Р±РѕС‚С‡РёРє РєР»РёРєР° РїРѕ РЅР°РІРёРіР°С†РёРё
   const handleNavClick = (id: PageType) => {
     setActiveItem(id);
     console.log(`Navigating to: ${id}`);
   };
   
-  // Обработчики для специфичных действий
+  // РћР±СЂР°Р±РѕС‚С‡РёРєРё РґР»СЏ СЃРїРµС†РёС„РёС‡РЅС‹С… РґРµР№СЃС‚РІРёР№
   const handleRaffleClick = () => {
     console.log('Raffle clicked');
     handleNavClick('raffle');
@@ -86,7 +106,7 @@ const Sidebar: React.FC = () => {
     handleNavClick('install');
   };
   
-  // Определяем секции сайдбара (ваш оригинальный код)
+  // РћРїСЂРµРґРµР»СЏРµРј СЃРµРєС†РёРё СЃР°Р№РґР±Р°СЂР° (РІР°С€ РѕСЂРёРіРёРЅР°Р»СЊРЅС‹Р№ РєРѕРґ)
   const sections: SidebarSectionType[] = [
     {
       items: [

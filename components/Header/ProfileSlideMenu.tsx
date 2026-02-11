@@ -1,8 +1,9 @@
-'use client'
+﻿'use client'
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUser } from '@/contexts/UserContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
 
 interface UserData {
   name: string;
@@ -30,20 +31,18 @@ const ProfileSlideMenu: React.FC<ProfileSlideMenuProps> = ({
   userData = DEFAULT_USER_DATA
 }) => {
   const { theme, toggleTheme } = useTheme();
-  const { toggleLanguage, t } = useLanguage();
+  const { language, setLanguage, languages, t } = useLanguage();
   const { logout } = useUser();
-  const [menuState, setMenuState] = useState<'closed' | 'active'>('closed');
+  const { currency, currencies, setCurrencyCode } = useCurrency();
+  const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
+  const [isLanguageOpen, setIsLanguageOpen] = useState(false);
 
   useEffect(() => {
-    if (isOpen && menuState === 'closed') {
-      setMenuState('active');
-    } else if (!isOpen && menuState === 'active') {
-      const timer = setTimeout(() => {
-        setMenuState('closed');
-      }, 250);
-      return () => clearTimeout(timer);
+    if (!isOpen) {
+      setIsCurrencyOpen(false);
+      setIsLanguageOpen(false);
     }
-  }, [isOpen, menuState]);
+  }, [isOpen]);
 
   const getInitials = (name: string): string => {
     if (!name || name.trim() === '') return '?';
@@ -59,21 +58,34 @@ const ProfileSlideMenu: React.FC<ProfileSlideMenuProps> = ({
   const subscriptionText = userData.subscriptionActive
     ? t('profile.subscription_active')
     : t('profile.subscription_inactive');
-  const displayEmail = userData.email || 'Не указан';
+  const displayEmail = userData.email || 'РќРµ СѓРєР°Р·Р°РЅ';
   const displayUid = userData.uid || '-----';
+  const currentCurrency = currency.code;
 
   const handleClose = () => {
     onClose();
   };
 
-  const copyUid = () => {
-    if (userData.uid && navigator.clipboard) {
-      navigator.clipboard.writeText(userData.uid);
+  const copyUid = async () => {
+    if (!userData.uid) return;
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(userData.uid);
+        return;
+      }
+      throw new Error('Clipboard unavailable');
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = userData.uid;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
     }
   };
 
-  const showLanguageSelector = () => {
-    toggleLanguage();
+  const handleLanguageToggle = () => {
+    setIsLanguageOpen((prev) => !prev);
   };
 
   const handleLogout = (event?: React.MouseEvent<HTMLAnchorElement>) => {
@@ -87,14 +99,31 @@ const ProfileSlideMenu: React.FC<ProfileSlideMenuProps> = ({
     toggleTheme();
   };
 
-  if (menuState === 'closed') {
-    return null;
-  }
+  const handleCurrencyToggle = () => {
+    setIsCurrencyOpen((prev) => !prev);
+  };
 
-  const menuClass = isOpen ? 'active' : 'closing';
+  const handleSelectCurrency = async (code: string) => {
+    await setCurrencyCode(code);
+    setIsCurrencyOpen(false);
+  };
+
+  const handleSelectLanguage = (code: string) => {
+    setLanguage(code as typeof language);
+    setIsLanguageOpen(false);
+  };
+
+  const currentLanguageLabel =
+    languages.find((item) => item.code === language)?.native || t('language.name');
+
+  const menuClass = isOpen ? 'active' : '';
 
   return (
-    <div className={`profile-slide-menu ${menuClass}`} id="profileSlideMenu">
+    <div
+      className={`profile-slide-menu ${menuClass}`}
+      id="profileSlideMenu"
+      aria-hidden={!isOpen}
+    >
       <div className="profile-menu-header">
         <button className="profile-menu-close" onClick={handleClose}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -109,12 +138,12 @@ const ProfileSlideMenu: React.FC<ProfileSlideMenuProps> = ({
               {displayEmail}
             </div>
             <div className="profile-uid">
-              ID · <span id="menuUid">{displayUid}</span>
+              ID: <span id="menuUid">{displayUid}</span>
               <button
                 className="copy-uid-btn"
                 onClick={copyUid}
                 disabled={!userData.uid}
-                title="Скопировать ID"
+                title="РЎРєРѕРїРёСЂРѕРІР°С‚СЊ ID"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -135,18 +164,45 @@ const ProfileSlideMenu: React.FC<ProfileSlideMenuProps> = ({
       <div className="profile-menu-divider"></div>
 
       <div className="profile-menu-content">
-        <div className="profile-menu-item with-arrow" onClick={showLanguageSelector}>
-          <div className="profile-menu-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-            </svg>
+        <div className="language-dropdown-wrapper mobile">
+          <div className="profile-menu-item with-arrow" onClick={handleLanguageToggle}>
+            <div className="profile-menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+              </svg>
+            </div>
+            <span data-i18n="profile.language" className="translated">{t('profile.language')}</span>
+            <span className="profile-menu-item-value" id="current-language-display">
+              {currentLanguageLabel}
+            </span>
           </div>
-          <span data-i18n="profile.language" className="translated">{t('profile.language')}</span>
-          <span className="profile-menu-item-value" id="current-language-display">
-            {t('language.name')}
-          </span>
+          {isLanguageOpen && (
+            <div className="language-dropdown mobile">
+              <div className="language-options">
+                {languages.map((item) => {
+                  const isSelected = item.code === language;
+                  return (
+                    <button
+                      key={item.code}
+                      type="button"
+                      className={`language-option ${isSelected ? 'selected' : ''}`}
+                      onClick={() => handleSelectLanguage(item.code)}
+                    >
+                      <span className="language-option-flag">{item.flag}</span>
+                      <span className="language-option-name">{item.native}</span>
+                      {isSelected && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="language-option-check">
+                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path>
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="profile-menu-item" onClick={handleThemeToggle}>
@@ -163,6 +219,52 @@ const ProfileSlideMenu: React.FC<ProfileSlideMenuProps> = ({
               <div className="theme-toggle-slider"></div>
             </div>
           </div>
+        </div>
+
+        <div className="currency-dropdown-wrapper mobile">
+          <div className="profile-menu-item" onClick={handleCurrencyToggle}>
+            <div className="profile-menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="1" x2="12" y2="23"></line>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+            </div>
+            <span data-i18n="profile.currency" className="translated">{t('profile.currency')}</span>
+            <span className="profile-menu-item-value">{currentCurrency}</span>
+          </div>
+          {isCurrencyOpen && (
+            <div className="currency-dropdown mobile">
+              <div className="currency-options">
+                {currencies.map((item) => {
+                  const isSelected = item.code === currentCurrency;
+                  const flag = item.code === 'USD'
+                    ? '🇺🇸'
+                    : item.code === 'AMD'
+                    ? '🇦🇲'
+                    : item.code === 'EUR'
+                    ? '🇪🇺'
+                    : '🇷🇺';
+                  return (
+                    <button
+                      key={item.code}
+                      type="button"
+                      className={`currency-option ${isSelected ? 'selected' : ''}`}
+                      onClick={() => handleSelectCurrency(item.code)}
+                    >
+                      <span className="currency-flag">{flag}</span>
+                      <span className="currency-code">{item.code}</span>
+                      <span className="currency-symbol">{item.symbol || item.code}</span>
+                      {isSelected && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="currency-check">
+                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path>
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="profile-menu-divider"></div>
@@ -183,3 +285,5 @@ const ProfileSlideMenu: React.FC<ProfileSlideMenuProps> = ({
 };
 
 export default ProfileSlideMenu;
+
+

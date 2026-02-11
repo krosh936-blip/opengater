@@ -4,6 +4,7 @@ import './globals.css'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { UserProvider } from '@/contexts/UserContext' // Добавляем импорт
 import { LanguageProvider } from '@/contexts/LanguageContext'
+import { CurrencyProvider } from '@/contexts/CurrencyContext'
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'] })
 
@@ -26,20 +27,15 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  // Проверяем сохраненную тему
                   var savedTheme = localStorage.getItem('opengater-theme');
+                  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  var theme = savedTheme || (prefersDark ? 'dark' : 'light');
                   
-                  // Если есть сохраненная светлая тема, сразу добавляем класс
-                  if (savedTheme === 'light') {
+                  document.documentElement.setAttribute('data-theme', theme);
+                  if (theme === 'light') {
                     document.documentElement.classList.add('light-theme');
-                  }
-                  
-                  // Если нет сохраненной темы, проверяем системные настройки
-                  else if (!savedTheme) {
-                    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    if (!prefersDark) {
-                      document.documentElement.classList.add('light-theme');
-                    }
+                  } else {
+                    document.documentElement.classList.remove('light-theme');
                   }
                   
                   // Добавляем initial-render класс
@@ -57,8 +53,11 @@ export default function RootLayout({
         <div className="background" aria-hidden="true"></div>
         <ThemeProvider>
           <LanguageProvider>
-            <UserProvider> {/* Оборачиваем в UserProvider */}
-              {children}
+            <UserProvider>
+              {/* Оборачиваем в UserProvider */}
+              <CurrencyProvider>
+                {children}
+              </CurrencyProvider>
             </UserProvider>
           </LanguageProvider>
         </ThemeProvider>

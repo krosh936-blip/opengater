@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { UserInfo, fetchUserInfo, getUserToken, removeUserToken, calculateDaysRemaining } from '@/lib/api';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -8,7 +8,7 @@ interface UserContextType {
   isLoading: boolean;
   error: string | null;
   isAuthenticated: boolean;
-  refreshUser: () => Promise<void>;
+  refreshUser: (options?: { silent?: boolean }) => Promise<void>;
   logout: () => void;
   daysRemaining: string;
 }
@@ -22,42 +22,62 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { setLanguage } = useLanguage();
 
-  const loadUser = async () => {
+  const loadUser = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true;
     try {
-      setIsLoading(true);
-      setError(null);
+      if (!silent) {
+        setIsLoading(true);
+        setError(null);
+      }
       
       const token = getUserToken();
       if (!token) {
-        setIsAuthenticated(false);
+        if (!silent) {
+          setIsAuthenticated(false);
+          setUser(null);
+        }
         return;
       }
 
       const userData = await fetchUserInfo();
       setUser(userData);
       setIsAuthenticated(true);
+      setError(null);
       if (userData?.language) {
         const raw = userData.language.toLowerCase();
-        const nextLang = raw.includes('ru') || raw.includes('рус') ? 'ru' : raw.includes('en') ? 'en' : null;
+        const nextLang = raw.includes('ru') || raw.includes('рус')
+          ? 'ru'
+          : raw.includes('en') || raw.includes('eng')
+          ? 'en'
+          : raw.includes('am') || raw.includes('arm') || raw.includes('հայ')
+          ? 'am'
+          : null;
         if (nextLang) {
           setLanguage(nextLang);
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка загрузки данных');
-      setIsAuthenticated(false);
-      
-      // Если ошибка 401 или токен невалидный, удаляем токен
-      if (err instanceof Error && err.message.includes('401')) {
-        removeUserToken();
+      const message = err instanceof Error ? err.message : 'РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё РґР°РЅРЅС‹С…';
+      if (!silent) {
+        setError(message);
+      }
+      const isAuthError =
+        message.includes('РќРµРґРµР№СЃС‚РІРёС‚РµР»СЊРЅС‹Р№ С‚РѕРєРµРЅ') ||
+        message.includes('401') ||
+        message.includes('403');
+      if (!silent && isAuthError) {
+        setIsAuthenticated(false);
+        setUser(null);
       }
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   };
 
-  const refreshUser = async () => {
-    await loadUser();
+  const refreshUser = async (options?: { silent?: boolean }) => {
+    await loadUser(options);
   };
 
   const logout = () => {

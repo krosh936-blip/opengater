@@ -1,16 +1,26 @@
-﻿const API_BASE_URL = 'https://cdn.opngtr.ru/api'; 
+﻿const API_BASE_URL = 'https://cdn.opngtr.ru/api';
 
 
 const API_PROXY_BASE_URL = '/api/proxy';
 
 
 export interface Currency {
-  code: 'RUB' | 'USD' | 'EUR';
+  code: string;
   symbol: string;
   rate: number;
   rounding_precision: number;
   id: number;
   hidden: boolean;
+}
+
+export interface LanguageOption {
+  code?: string;
+  language?: string;
+  name?: string;
+  native?: string;
+  native_name?: string;
+  id?: string | number;
+  short?: string;
 }
 
 export interface Account {
@@ -67,6 +77,13 @@ export interface DeviceTariff {
 }
 
 export type DeviceTariffResponse = DeviceTariff | number;
+
+export interface ReferredUser {
+  full_name?: string;
+  username?: string;
+  connected?: boolean;
+  amount?: number;
+}
 
 export interface TelegramAuthPayload {
   id: number;
@@ -127,7 +144,6 @@ export const fetchUserInfo = async (): Promise<UserInfo> => {
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        removeUserToken();
         throw new Error('Недействительный токен. Пожалуйста, войдите снова');
       }
       
@@ -177,6 +193,63 @@ export const fetchBalance = async (): Promise<{
   };
 };
 
+export const fetchCurrencies = async (): Promise<Currency[]> => {
+  const response = await fetch(`${API_PROXY_BASE_URL}/currency/`, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ошибка сервера: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+export const fetchLanguages = async (): Promise<LanguageOption[]> => {
+  const endpoints = [
+    `${API_PROXY_BASE_URL}/language/`,
+    `${API_PROXY_BASE_URL}/languages/`,
+  ];
+
+  let lastError: Error | null = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        lastError = new Error(`Ошибка сервера: ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        return data;
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown error');
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  throw new Error('Не удалось загрузить список языков');
+};
+
 // Функция для получения дней оставшихся
 export const calculateDaysRemaining = (expireDate: string): string => {
   const expire = new Date(expireDate);
@@ -216,6 +289,24 @@ export const updateLocations = async (userId: number, locations: number[]): Prom
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ user_id: userId, locations }),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ошибка сервера: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+export const setUserCurrency = async (userId: number, currency: string): Promise<string> => {
+  const response = await fetch(`${API_PROXY_BASE_URL}/user/currency`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ user_id: userId, currency_code: currency }),
     credentials: 'include',
   });
 
@@ -278,6 +369,29 @@ export const fetchDeviceTariff = async (userId: number, deviceNumber: number): P
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ user_id: userId, device_number: deviceNumber }),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ошибка сервера: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+export const fetchReferredUsers = async (): Promise<ReferredUser[]> => {
+  const token = getUserToken();
+
+  if (!token) {
+    throw new Error('Токен пользователя не найден');
+  }
+
+  const response = await fetch(`${API_PROXY_BASE_URL}/user/referred?token=${encodeURIComponent(token)}`, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
     credentials: 'include',
   });
 

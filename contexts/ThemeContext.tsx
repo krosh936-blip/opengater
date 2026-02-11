@@ -19,7 +19,9 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   // Инициализация темы
   useEffect(() => {
     // Определяем текущую тему по классу на html
-    const isLightTheme = document.documentElement.classList.contains('light-theme');
+    const root = document.documentElement;
+    const dataTheme = root.getAttribute('data-theme');
+    const isLightTheme = dataTheme === 'light' || root.classList.contains('light-theme');
     const initialTheme = isLightTheme ? 'light' : 'dark';
     
     setThemeState(initialTheme);
@@ -48,8 +50,10 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     // Применяем тему через CSS класс
     if (themeToApply === 'light') {
       root.classList.add('light-theme');
+      root.setAttribute('data-theme', 'light');
     } else {
       root.classList.remove('light-theme');
+      root.setAttribute('data-theme', 'dark');
     }
     
     // Сохраняем в localStorage

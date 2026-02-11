@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import './DevicesPage.css';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUser } from '@/contexts/UserContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { fetchDeviceButtons, fetchDeviceTariff, setDeviceNumber, DeviceButtonOption, DeviceTariff, DeviceTariffResponse } from '@/lib/api';
 
 interface DevicesPageProps {
@@ -19,13 +20,16 @@ const planLabelByDevice: Record<number, string> = {
 export default function DevicesPage({ onBack }: DevicesPageProps) {
   const { t, language } = useLanguage();
   const { user, isLoading, error, isAuthenticated, refreshUser } = useUser();
+  const { formatCurrency: formatPrice, currencyRefreshId } = useCurrency();
   const [plans, setPlans] = useState<DeviceButtonOption[]>([]);
   const [selectedDeviceNumber, setSelectedDeviceNumber] = useState<number | null>(null);
   const [tariffs, setTariffs] = useState<Record<number, DeviceTariff>>({});
   const [customValue, setCustomValue] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [summaryVisible, setSummaryVisible] = useState(false);
+  const [actionsVisible, setActionsVisible] = useState(false);
 
-  const formatCurrency = (value: number) => `${Math.round(Number(value) || 0)}₽`;
+  const formatCurrency = (value: number) => formatPrice(Number(value) || 0);
   const sortedPlans = useMemo(
     () => [...plans].sort((a, b) => a.device_number - b.device_number),
     [plans]
@@ -37,6 +41,10 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
     }
     return fallbackPlanNumbers;
   }, [sortedPlans]);
+
+  useEffect(() => {
+    setTariffs({});
+  }, [currencyRefreshId]);
 
   const renderPlanIcon = (deviceNumber: number) => {
     switch (deviceNumber) {
@@ -113,7 +121,7 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
     return () => {
       mounted = false;
     };
-  }, [user?.id, user?.device_number]);
+  }, [user?.id, user?.device_number, currencyRefreshId]);
 
   useEffect(() => {
     let mounted = true;
@@ -152,7 +160,7 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
     return () => {
       mounted = false;
     };
-  }, [planNumbers, user?.id]);
+  }, [planNumbers, user?.id, currencyRefreshId]);
 
   useEffect(() => {
     if (!user?.id || selectedDeviceNumber == null) return;
@@ -181,7 +189,7 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
     return () => {
       mounted = false;
     };
-  }, [selectedDeviceNumber, user?.id, tariffs]);
+  }, [selectedDeviceNumber, user?.id, currencyRefreshId, tariffs]);
 
   useEffect(() => {
     if (!user?.id || !user?.device_number) return;
@@ -207,7 +215,7 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
     return () => {
       mounted = false;
     };
-  }, [user?.id, user?.device_number, tariffs]);
+  }, [user?.id, user?.device_number, currencyRefreshId, tariffs]);
 
   const currentTariff = useMemo(() => {
     if (selectedDeviceNumber == null) return null;
@@ -218,7 +226,27 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
 
   const discountPercent = 0;
   const discountValue = 0;
+  const showSummary = customValue.trim().length > 0;
 
+  useEffect(() => {
+    let summaryTimer: number | undefined;
+    let actionsTimer: number | undefined;
+
+    if (showSummary) {
+      setSummaryVisible(false);
+      setActionsVisible(false);
+      summaryTimer = window.setTimeout(() => setSummaryVisible(true), 100);
+      actionsTimer = window.setTimeout(() => setActionsVisible(true), 200);
+    } else {
+      setSummaryVisible(false);
+      setActionsVisible(false);
+    }
+
+    return () => {
+      if (summaryTimer) window.clearTimeout(summaryTimer);
+      if (actionsTimer) window.clearTimeout(actionsTimer);
+    };
+  }, [showSummary]);
   const handleSelectPlan = (deviceNumber: number) => {
     setSelectedDeviceNumber(deviceNumber);
     setCustomValue('');
@@ -246,8 +274,8 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
   if (isLoading) {
     return (
       <div className="devices-page loading">
-        <div className="loading-spinner">
-          <div className="spinner"></div>
+        <div className="loading-container">
+          <span className="loading-spinner" aria-hidden="true"></span>
           <p>{t('common.loading')}</p>
         </div>
       </div>
@@ -336,6 +364,7 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
           const isActive = selectedDeviceNumber === plan.device_number;
           const labelKey = planLabelByDevice[plan.device_number] || 'devices.plan_custom';
           const isPopular = plan.device_number === 3;
+          const showSavings = plan.device_number === 5 || plan.device_number === 10;
           return (
             <div
               key={plan.device_number}
@@ -354,7 +383,8 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
                   </p>
                 </div>
                 <div className="plan-footer">
-                  <span className="plan-price">{price ? formatCurrency(price) : '...'}</span>
+                  <span className="plan-price">{price != null ? formatCurrency(price) : '...'}</span>
+                  {showSavings && <span className="plan-savings">{t('devices.savings_28')}</span>}
                 </div>
               </div>
             </div>
@@ -375,7 +405,7 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
         />
       </div>
 
-      <div className="pricing-summary">
+      <div className={`pricing-summary ${summaryVisible ? 'visible' : ''}`}>
         <div className="pricing-title">{t('devices.pricing_title')}</div>
         <div className="pricing-row">
           <span className="pricing-label">{t('devices.selected_devices')}</span>
@@ -395,7 +425,7 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
         </div>
       </div>
 
-      <div className="bottom-actions">
+      <div className={`bottom-actions ${actionsVisible ? 'visible' : ''}`}>
         <button className="action-button" onClick={handleUpdate} disabled={isUpdating || selectedDeviceNumber == null}>
           <span>{t('devices.update_button')}</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

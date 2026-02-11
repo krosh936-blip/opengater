@@ -5,8 +5,8 @@ const Logo = () => {
         src="/logo.png" 
         alt="Opengater Logo" 
         className="logo-image"
-        width={32}
-        height={32}
+        width={22}
+        height={22}
       />
       <span className="logo-text">Opengater</span>
     </div>
