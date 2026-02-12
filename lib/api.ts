@@ -530,6 +530,36 @@ export const sendEmailAuthCode = async (email: string, serviceName: string, lang
   }
 };
 
+export const fetchUserInfoByToken = async (token: string): Promise<UserInfo> => {
+  if (!token) {
+    throw new Error('Токен пользователя не найден');
+  }
+
+  const response = await fetch(`${API_PROXY_BASE_URL}/user/info/token?token=${encodeURIComponent(token)}`, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('Недействительный токен. Пожалуйста, войдите снова');
+    }
+
+    if (response.status === 422) {
+      const error: ApiError = await response.json();
+      throw new Error(error.detail[0]?.msg || 'Ошибка валидации');
+    }
+
+    throw new Error(`Ошибка сервера: ${response.status}`);
+  }
+
+  return response.json();
+};
+
 export const verifyEmailAuthCode = async (email: string, code: string): Promise<AuthTokens & Record<string, unknown>> => {
   const response = await authFetch(`/auth/email/verify`, {
     method: 'POST',

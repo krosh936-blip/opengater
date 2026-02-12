@@ -6,6 +6,7 @@ import {
   createAuthUserFromTelegram,
   extractAuthToken,
   fetchAuthUserId,
+  fetchUserInfoByToken,
   sendEmailAuthCode,
   setUserToken,
   TelegramAuthPayload,
@@ -321,6 +322,17 @@ export default function LoginPage() {
           localStorage.setItem('auth_refresh_token', tokens.refresh_token);
         }
         localStorage.setItem('auth_source', 'email');
+      }
+
+      if (tokens.access_token) {
+        try {
+          await fetchUserInfoByToken(tokens.access_token);
+          setUserToken(tokens.access_token);
+          window.location.href = '/';
+          return;
+        } catch {
+          // Если access_token не подходит для API — идем по старому флоу.
+        }
       }
 
       let userId: number | null = null;
