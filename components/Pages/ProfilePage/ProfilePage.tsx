@@ -20,6 +20,8 @@ const getInitials = (value: string) => {
   return value.slice(0, 2).toUpperCase();
 };
 
+const TELEGRAM_LINK_STORAGE_KEY = 'opengater_telegram_link';
+
 const formatTelegramDisplay = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) return '';
@@ -43,6 +45,29 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
   const getAuthToken = () => {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('auth_access_token') || localStorage.getItem('access_token');
+  };
+
+  const saveTelegramLinkCache = (token: string, username?: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const payload = { token, username: username || '', ts: Date.now() };
+      localStorage.setItem(TELEGRAM_LINK_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // ignore cache errors
+    }
+  };
+
+  const readTelegramLinkCache = (token: string) => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(TELEGRAM_LINK_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { token?: string; username?: string };
+      if (!parsed || parsed.token !== token) return null;
+      return { username: parsed.username || '' };
+    } catch {
+      return null;
+    }
   };
 
   useEffect(() => {
@@ -78,13 +103,29 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
       setTelegramLinked(false);
       return;
     }
+    const cached = readTelegramLinkCache(token);
     const profile = await fetchAuthProfile(token);
     if (!profile) {
+      if (cached) {
+        setTelegramLinked(true);
+        setLinkedTelegram(cached.username || null);
+      }
       return;
     }
     setLinkedEmail(profile.email || null);
-    setLinkedTelegram(profile.telegram || null);
-    setTelegramLinked(!!profile.telegramLinked || !!profile.telegram);
+    if (profile.telegram) {
+      setLinkedTelegram(profile.telegram || null);
+      setTelegramLinked(true);
+      saveTelegramLinkCache(token, profile.telegram);
+    } else if (profile.telegramLinked || cached) {
+      setTelegramLinked(true);
+      if (cached?.username) {
+        setLinkedTelegram(cached.username);
+      }
+    } else {
+      setLinkedTelegram(null);
+      setTelegramLinked(false);
+    }
   };
 
   useEffect(() => {
@@ -125,6 +166,10 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
           const display = username || user?.first_name || '';
           setTelegramLinked(true);
           setLinkedTelegram(display || null);
+          const token = getAuthToken();
+          if (token) {
+            saveTelegramLinkCache(token, display || '');
+          }
         };
         linkTelegramToAuth(token, payload)
           .then(() => {
