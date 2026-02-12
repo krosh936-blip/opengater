@@ -1,7 +1,38 @@
-﻿const API_BASE_URL = 'https://cdn.opngtr.ru/api';
+﻿const API_BASE_URL = 'https://api.bot.eutochkin.com/api';
 
 
 const API_PROXY_BASE_URL = '/api/proxy';
+const AUTH_BACKEND_DIRECT_URL = 'https://api.bot.eutochkin.com/api';
+const AUTH_BACKEND_ALT_URL = 'https://api.bot.eutochkin.com';
+const AUTH_BACKEND_FALLBACK_URL = 'https://auth.bot.eutochkin.com';
+const AUTH_BACKEND_PROXY_URL = '/api/auth';
+const AUTH_BACKEND_URLS = [
+  AUTH_BACKEND_PROXY_URL,
+  AUTH_BACKEND_DIRECT_URL,
+  AUTH_BACKEND_ALT_URL,
+  AUTH_BACKEND_FALLBACK_URL,
+];
+
+const authFetch = async (path: string, init: RequestInit): Promise<Response> => {
+  let lastError: Error | null = null;
+  for (const baseUrl of AUTH_BACKEND_URLS) {
+    try {
+      const response = await fetch(`${baseUrl}${path}`, init);
+      if (response.ok) {
+        return response;
+      }
+      // Если прокси/хост недоступен или токен валиден только на другом хосте — пробуем следующий.
+      if ([401, 403, 404, 500, 502, 503, 504].includes(response.status)) {
+        lastError = new Error(`Auth backend error: ${response.status}`);
+        continue;
+      }
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Auth backend request failed');
+    }
+  }
+  throw lastError || new Error('Auth backend request failed');
+};
 
 
 export interface Currency {
@@ -93,6 +124,12 @@ export interface TelegramAuthPayload {
   photo_url?: string;
   auth_date: number;
   hash: string;
+}
+
+export interface AuthTokens {
+  access_token: string;
+  refresh_token: string;
+  token_type?: string;
 }
 
 
@@ -422,7 +459,7 @@ export const authUserById = async (userId: number): Promise<string> => {
   return response.json();
 };
 
-const extractAuthToken = (data: unknown): string | null => {
+export const extractAuthToken = (data: unknown): string | null => {
   if (typeof data === 'string') {
     return data;
   }
@@ -436,6 +473,148 @@ const extractAuthToken = (data: unknown): string | null => {
     return typeof token === 'string' && token ? token : null;
   }
   return null;
+};
+
+export const sendEmailAuthCode = async (email: string, serviceName: string, language: string): Promise<void> => {
+  const response = await authFetch(`/auth/email/send-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email,
+      service_name: serviceName,
+      language,
+    }),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.detail || 'Не удалось отправить код');
+  }
+};
+
+export const verifyEmailAuthCode = async (email: string, code: string): Promise<AuthTokens & Record<string, unknown>> => {
+  const response = await authFetch(`/auth/email/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || 'Не удалось подтвердить код');
+  }
+
+  return data as AuthTokens & Record<string, unknown>;
+};
+
+export const verifyAuthToken = async (token: string): Promise<Record<string, unknown>> => {
+  const response = await authFetch(`/auth/jwt/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || 'Не удалось проверить токен');
+  }
+
+  return data as Record<string, unknown>;
+};
+
+const extractUserId = (data: unknown): number | null => {
+  if (!data || typeof data !== 'object') return null;
+  const record = data as Record<string, unknown>;
+  const raw =
+    record.user_id ||
+    record.id ||
+    record.uid ||
+    record.sub ||
+    (typeof record.user === 'object' && record.user ? (record.user as Record<string, unknown>).id : undefined);
+  if (typeof raw === 'number') return raw;
+  if (typeof raw === 'string') {
+    const parsed = Number(raw);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  return null;
+};
+
+export const fetchAuthUserId = async (accessToken: string): Promise<number | null> => {
+  const response = await authFetch(`/users/me`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = await response.json().catch(() => ({}));
+  return extractUserId(data);
+};
+
+export interface AuthUserProfile {
+  id?: number;
+  email?: string;
+  username?: string;
+  telegram?: string;
+}
+
+export const fetchAuthProfile = async (accessToken: string): Promise<AuthUserProfile | null> => {
+  const response = await authFetch(`/users/me`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = await response.json().catch(() => ({})) as Record<string, unknown>;
+  const id = extractUserId(data) ?? undefined;
+  const email =
+    (typeof data.email === 'string' ? data.email : undefined) ||
+    (typeof data.user === 'object' && data.user && typeof (data.user as Record<string, unknown>).email === 'string'
+      ? String((data.user as Record<string, unknown>).email)
+      : undefined);
+  const username =
+    (typeof data.username === 'string' ? data.username : undefined) ||
+    (typeof data.user === 'object' && data.user && typeof (data.user as Record<string, unknown>).username === 'string'
+      ? String((data.user as Record<string, unknown>).username)
+      : undefined);
+  const telegram =
+    (typeof data.telegram === 'string' ? data.telegram : undefined) ||
+    (typeof data.telegram_username === 'string' ? data.telegram_username : undefined);
+
+  return { id, email, username, telegram };
+};
+
+export const verifyTelegramAuth = async (
+  payload: TelegramAuthPayload
+): Promise<AuthTokens | null> => {
+  try {
+    const response = await authFetch(`/auth/telegram/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return null;
+    }
+    if (data && typeof data === 'object' && 'access_token' in data) {
+      return data as AuthTokens;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 };
 
 export const createAuthUserFromTelegram = async (
@@ -477,3 +656,6 @@ export const createAuthUserFromTelegram = async (
 
   throw fallback.error || primary.error || new Error('Не удалось получить токен');
 };
+
+
+

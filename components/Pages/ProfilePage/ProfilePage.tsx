@@ -1,8 +1,10 @@
 'use client'
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './ProfilePage.css';
 import { useUser } from '@/contexts/UserContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { fetchAuthProfile } from '@/lib/api';
 
 interface ProfilePageProps {
   onBack?: () => void;
@@ -18,9 +20,14 @@ const getInitials = (value: string) => {
 };
 
 export default function ProfilePage({ onBack }: ProfilePageProps) {
-  const { user, isLoading, error, isAuthenticated } = useUser();
-  const { t } = useLanguage();
+  const { user, isLoading, error, isAuthenticated, refreshUser } = useUser();
+  const { t, language } = useLanguage();
+  const { theme } = useTheme();
   const [toast, setToast] = useState<string | null>(null);
+  const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
+  const [linkedTelegram, setLinkedTelegram] = useState<string | null>(null);
+  const popupRef = useRef<Window | null>(null);
+  const popupOrigin = 'https://lka.bot.eutochkin.com';
 
   useEffect(() => {
     if (!toast) return;
@@ -39,12 +46,88 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
   const subscriptionActive = !!user && new Date(user.expire).getTime() > Date.now();
 
   const authInfo = useMemo(() => {
-    const email = rawUsername.includes('@') ? rawUsername : '';
-    const telegram = rawUsername && !rawUsername.includes('@')
-      ? (rawUsername.startsWith('@') ? rawUsername : `@${rawUsername}`)
+    const email = linkedEmail || (rawUsername.includes('@') ? rawUsername : '');
+    const telegramSource = linkedTelegram || rawUsername;
+    const telegram = telegramSource && !telegramSource.includes('@')
+      ? (telegramSource.startsWith('@') ? telegramSource : `@${telegramSource}`)
       : '';
     return { email, telegram };
-  }, [rawUsername]);
+  }, [linkedEmail, linkedTelegram, rawUsername]);
+
+  const loadAuthProfile = async () => {
+    if (typeof window === 'undefined') return;
+    const token = localStorage.getItem('auth_access_token');
+    if (!token) {
+      setLinkedEmail(null);
+      setLinkedTelegram(null);
+      return;
+    }
+    const profile = await fetchAuthProfile(token);
+    setLinkedEmail(profile?.email || null);
+    setLinkedTelegram(profile?.telegram || profile?.username || null);
+  };
+
+  useEffect(() => {
+    loadAuthProfile().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== popupOrigin) return;
+      if (!event.data || typeof event.data !== 'object') return;
+      const data = event.data as { type?: string };
+
+      if (data.type === 'request_link_token') {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('auth_access_token') : null;
+        if (!token) {
+          setToast(t('profile.link_email_requires_auth'));
+          return;
+        }
+        // Отправляем токен в popup, чтобы завершить привязку email.
+        (event.source as Window | null)?.postMessage({ type: 'link_token', token }, event.origin);
+        return;
+      }
+
+      if (data.type === 'email_linked') {
+        setToast(t('profile.email_linked_success'));
+        refreshUser({ silent: true }).catch(() => {});
+        loadAuthProfile().catch(() => {});
+        if (popupRef.current && !popupRef.current.closed) {
+          popupRef.current.close();
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [refreshUser, t]);
+
+  const openEmailLinkPopup = (mode: 'add' | 'change') => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_access_token') : null;
+    if (!token) {
+      setToast(t('profile.link_email_requires_auth'));
+      return;
+    }
+
+    const lang = language === 'am' ? 'hy' : language;
+    const url = new URL(popupOrigin);
+    url.searchParams.set('link_email', '1');
+    url.searchParams.set('user_name', displayName || 'User');
+    url.searchParams.set('theme', theme || 'light');
+    url.searchParams.set('lang', lang);
+    if (mode === 'change') {
+      url.searchParams.set('change', '1');
+    }
+
+    popupRef.current = window.open(
+      url.toString(),
+      'opengater_email_link',
+      'width=520,height=720,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes'
+    );
+    if (!popupRef.current) {
+      setToast(t('profile.popup_blocked'));
+    }
+  };
 
   const copyUid = async () => {
     if (!uid) return;
@@ -160,12 +243,12 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
                 <span className="auth-method-label">Email</span>
                 <span className="auth-method-value">{authInfo.email}</span>
               </div>
-              <button type="button" className="auth-method-action" onClick={handleComingSoon}>
+              <button type="button" className="auth-method-action" onClick={() => openEmailLinkPopup('change')}>
                 {t('profile.change_email')}
               </button>
             </div>
           ) : (
-            <button type="button" className="auth-method-row" onClick={handleComingSoon}>
+            <button type="button" className="auth-method-row" onClick={() => openEmailLinkPopup('add')}>
               <div className="auth-method-icon email-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="2" y="4" width="20" height="16" rx="2" />
