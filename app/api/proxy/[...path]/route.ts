@@ -4,9 +4,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const UPSTREAM_BASE_URLS = [
-  'https://api.bot.eutochkin.com/api',
-  'https://opngtr.com/api',
+  // Основной API (по просьбе): используем старый CDN.
   'https://cdn.opngtr.ru/api',
+  // 'https://api.bot.eutochkin.com/api', // Временно отключено: тестовый API падает 5xx.
+  'https://opngtr.com/api',
 ];
 
 // Hop-by-hop заголовки нельзя форвардить через прокси.
