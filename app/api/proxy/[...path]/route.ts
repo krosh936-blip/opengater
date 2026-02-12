@@ -3,13 +3,21 @@ import { NextRequest } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const UPSTREAM_BASE_URLS = [
-  // Основной API.
+// Варианты источников API. Оставьте один ACTIVE_UPSTREAMS.
+const UPSTREAMS_EUTOCHKIN = [
   'https://api.bot.eutochkin.com/api',
-  // Резервные API.
   'https://cdn.opngtr.ru/api',
   'https://opngtr.com/api',
 ];
+
+const UPSTREAMS_CDN = [
+  'https://cdn.opngtr.ru/api',
+  'https://api.bot.eutochkin.com/api',
+  'https://opngtr.com/api',
+];
+
+const ACTIVE_UPSTREAMS = UPSTREAMS_EUTOCHKIN;
+// const ACTIVE_UPSTREAMS = UPSTREAMS_CDN;
 
 // Hop-by-hop заголовки нельзя форвардить через прокси.
 const hopByHopHeaders = new Set([
@@ -43,7 +51,7 @@ const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
   const requestBody = req.method !== 'GET' && req.method !== 'HEAD' ? await req.text() : null;
   let lastError: Error | null = null;
 
-  for (const baseUrl of UPSTREAM_BASE_URLS) {
+  for (const baseUrl of ACTIVE_UPSTREAMS) {
     try {
       const url = buildUpstreamUrl(baseUrl, req, pathParts);
       const headers = new Headers();
