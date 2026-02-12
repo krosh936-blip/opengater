@@ -170,6 +170,16 @@ export interface AuthTokens {
   token_type?: string;
 }
 
+const isJwtToken = (token: string): boolean => {
+  return token.split('.').length === 3;
+};
+
+const buildAuthHeaders = (token?: string | null): HeadersInit => {
+  if (!token) return {};
+  if (!isJwtToken(token)) return {};
+  return { 'Authorization': `Bearer ${token}` };
+};
+
 
 // Функция для получения user_token из localStorage или cookies
 export const getUserToken = (): string | null => {
@@ -207,37 +217,61 @@ export const fetchUserInfo = async (): Promise<UserInfo> => {
     throw new Error('Токен пользователя не найден');
   }
 
-  try {
-    const response = await fetch(`${API_PROXY_BASE_URL}/user/info/token?token=${encodeURIComponent(token)}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
+  const attempts: Array<{ url: string; headers?: HeadersInit }> = [];
+  if (isJwtToken(token)) {
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/user/info`,
+      headers: buildAuthHeaders(token),
     });
-
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('Недействительный токен. Пожалуйста, войдите снова');
-      }
-      
-      if (response.status === 422) {
-        const error: ApiError = await response.json();
-        throw new Error(error.detail[0]?.msg || 'Ошибка валидации');
-      }
-      
-      throw new Error(`Ошибка сервера: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error('Неизвестная ошибка при загрузке данных');
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/user/info?token=${encodeURIComponent(token)}`,
+      headers: buildAuthHeaders(token),
+    });
   }
+  attempts.push({
+    url: `${API_PROXY_BASE_URL}/user/info/token?token=${encodeURIComponent(token)}`,
+  });
+
+  let lastError: Error | null = null;
+  for (const attempt of attempts) {
+    try {
+      const response = await fetch(attempt.url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          ...attempt.headers,
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        if ([401, 403, 404].includes(response.status)) {
+          lastError = new Error('Недействительный токен. Пожалуйста, войдите снова');
+          continue;
+        }
+
+        if (response.status === 422) {
+          const error: ApiError = await response.json();
+          lastError = new Error(error.detail[0]?.msg || 'Ошибка валидации');
+          continue;
+        }
+
+        lastError = new Error(`Ошибка сервера: ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Неизвестная ошибка при загрузке данных');
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+  throw new Error('Неизвестная ошибка при загрузке данных');
 };
 
 // Функция для получения подписок (пример)
@@ -535,29 +569,56 @@ export const fetchUserInfoByToken = async (token: string): Promise<UserInfo> => 
     throw new Error('Токен пользователя не найден');
   }
 
-  const response = await fetch(`${API_PROXY_BASE_URL}/user/info/token?token=${encodeURIComponent(token)}`, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
+  const attempts: Array<{ url: string; headers?: HeadersInit }> = [];
+  if (isJwtToken(token)) {
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/user/info`,
+      headers: buildAuthHeaders(token),
+    });
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/user/info?token=${encodeURIComponent(token)}`,
+      headers: buildAuthHeaders(token),
+    });
+  }
+  attempts.push({
+    url: `${API_PROXY_BASE_URL}/user/info/token?token=${encodeURIComponent(token)}`,
   });
 
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      throw new Error('Недействительный токен. Пожалуйста, войдите снова');
+  let lastError: Error | null = null;
+  for (const attempt of attempts) {
+    const response = await fetch(attempt.url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...attempt.headers,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      if ([401, 403, 404].includes(response.status)) {
+        lastError = new Error('Недействительный токен. Пожалуйста, войдите снова');
+        continue;
+      }
+
+      if (response.status === 422) {
+        const error: ApiError = await response.json();
+        lastError = new Error(error.detail[0]?.msg || 'Ошибка валидации');
+        continue;
+      }
+
+      lastError = new Error(`Ошибка сервера: ${response.status}`);
+      continue;
     }
 
-    if (response.status === 422) {
-      const error: ApiError = await response.json();
-      throw new Error(error.detail[0]?.msg || 'Ошибка валидации');
-    }
-
-    throw new Error(`Ошибка сервера: ${response.status}`);
+    return response.json();
   }
 
-  return response.json();
+  if (lastError) {
+    throw lastError;
+  }
+  throw new Error('Неизвестная ошибка при загрузке данных');
 };
 
 export const verifyEmailAuthCode = async (email: string, code: string): Promise<AuthTokens & Record<string, unknown>> => {
