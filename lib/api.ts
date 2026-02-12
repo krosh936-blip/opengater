@@ -15,7 +15,9 @@ const AUTH_BACKEND_URLS = [
 
 const authFetch = async (path: string, init: RequestInit): Promise<Response> => {
   let lastError: Error | null = null;
-  for (const baseUrl of AUTH_BACKEND_URLS) {
+  const isBrowser = typeof window !== 'undefined';
+  const baseUrls = isBrowser ? [AUTH_BACKEND_PROXY_URL] : AUTH_BACKEND_URLS;
+  for (const baseUrl of baseUrls) {
     try {
       const response = await fetch(`${baseUrl}${path}`, init);
       (response as unknown as { __authBase?: string }).__authBase = baseUrl;
@@ -50,7 +52,7 @@ const authFetch = async (path: string, init: RequestInit): Promise<Response> => 
 };
 
 const getAuthBase = (response: Response): string => {
-  return (response as unknown as { __authBase?: string }).__authBase || 'unknown';
+  return response.headers.get('x-auth-upstream') || (response as unknown as { __authBase?: string }).__authBase || 'unknown';
 };
 
 const getAuthErrorMessage = (response: Response, data: unknown): string => {
