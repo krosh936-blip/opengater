@@ -3,12 +3,18 @@ import React, { useEffect, useState } from 'react';
 import './AuthPage.css';
 import {
   authUserById,
-  AuthTokens,
+  type AuthTokens,
+  type AuthUserProfile,
   extractAuthToken,
+  fetchAuthProfile,
   fetchAuthUserId,
   fetchUserInfoByToken,
+  getUserToken,
+  refreshAuthToken,
+  removeUserToken,
   sendEmailAuthCode,
   setUserToken,
+  type UserInfo,
   verifyAuthToken,
   verifyEmailAuthCode,
 } from '@/lib/api';
@@ -26,6 +32,10 @@ export default function LoginPage() {
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [pendingEmail, setPendingEmail] = useState('');
   const [resendIn, setResendIn] = useState(0);
+  const [showQuickLogin, setShowQuickLogin] = useState(false);
+  const [quickLoginLabel, setQuickLoginLabel] = useState('');
+  const [quickLoginSecondary, setQuickLoginSecondary] = useState('');
+  const [quickLoginLoading, setQuickLoginLoading] = useState(false);
 
   const authLanguage = language === 'am' ? 'hy' : language;
   const titleText = step === 'code' ? t('auth.email_code_title') : t('auth.welcome_title');
@@ -39,6 +49,9 @@ export default function LoginPage() {
   const tokenToggleText = t('auth.use_token');
   const tokenPlaceholder = t('auth.token_placeholder');
   const tokenButtonText = t('auth.token_button');
+  const quickContinueAs = t('auth.continue_as');
+  const quickOtherAccount = t('auth.login_other_account');
+  const quickAccountLabel = t('auth.quick_account');
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -76,7 +89,171 @@ export default function LoginPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const token = getUserToken();
+    if (!token) return;
+    let mounted = true;
+    fetchUserInfoByToken(token)
+      .then(() => {
+        if (!mounted) return;
+        window.location.replace('/');
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        const message = err instanceof Error ? err.message : '';
+        if (/недействительный токен|401|403/i.test(message)) {
+          removeUserToken();
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const refreshToken = localStorage.getItem('auth_refresh_token') || localStorage.getItem('ga_refresh_token');
+    if (!refreshToken) return;
+    const storedLabel = localStorage.getItem('auth_user_label') || '';
+    const storedFullName = localStorage.getItem('ga_user_fullname') || '';
+    const storedEmail = localStorage.getItem('ga_user_email') || '';
+    const storedSource = localStorage.getItem('auth_source');
+    const normalizedFullName = normalizeLabel(storedFullName);
+    const normalizedEmail =
+      storedSource === 'telegram'
+        ? normalizeTelegramLabel(storedEmail) || normalizeLabel(storedEmail)
+        : normalizeLabel(storedEmail);
+    const normalizedLabel =
+      storedSource === 'telegram'
+        ? normalizeTelegramLabel(storedLabel) || normalizeLabel(storedLabel)
+        : normalizeLabel(storedLabel);
+    const primary = normalizedFullName || normalizedLabel || normalizedEmail;
+    const secondary =
+      normalizedFullName && normalizedEmail && normalizedFullName !== normalizedEmail ? normalizedEmail : '';
+    setQuickLoginLabel(primary || quickAccountLabel);
+    setQuickLoginSecondary(secondary);
+    setShowQuickLogin(true);
+  }, [quickAccountLabel]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!showQuickLogin) return;
+    if (quickLoginLabel && quickLoginLabel !== quickAccountLabel) return;
+    const accessToken = localStorage.getItem('auth_access_token') || localStorage.getItem('access_token');
+    if (!accessToken) return;
+    const source =
+      (localStorage.getItem('auth_source') as 'email' | 'telegram' | null) || 'email';
+    let mounted = true;
+    fetchAuthProfile(accessToken)
+      .then((profile) => {
+        if (!mounted || !profile) return;
+        const { primary, secondary } = deriveAuthLabels(source, { profile });
+        if (primary || secondary) {
+          storeAuthUserLabels(primary, secondary);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [showQuickLogin, quickLoginLabel, quickAccountLabel]);
+
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+  const normalizeLabel = (value?: string | null): string => {
+    if (!value) return '';
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    if (/^\d+$/.test(trimmed)) return '';
+    return trimmed;
+  };
+
+  const normalizeTelegramLabel = (value?: string | null): string => {
+    if (!value) return '';
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    const normalized = trimmed.replace(/^@/, '');
+    if (!normalized || /^\d+$/.test(normalized)) return '';
+    const handleLike = /^(?=.*[a-zA-Z_])[a-zA-Z0-9_]{3,}$/.test(normalized);
+    if (!handleLike) return '';
+    return `@${normalized}`;
+  };
+
+  const storeAuthUserLabels = (primary: string, secondary?: string) => {
+    if (typeof window === 'undefined') return;
+    const normalizedPrimary = normalizeLabel(primary);
+    const normalizedSecondary = normalizeLabel(secondary);
+    if (normalizedPrimary) {
+      localStorage.setItem('auth_user_label', normalizedPrimary);
+    }
+    if (normalizedPrimary || normalizedSecondary) {
+      const value = normalizedPrimary || normalizedSecondary;
+      if (normalizedPrimary && normalizedSecondary && normalizedPrimary !== normalizedSecondary) {
+        localStorage.setItem('ga_user_fullname', normalizedPrimary);
+        localStorage.setItem('ga_user_email', normalizedSecondary);
+      } else {
+        localStorage.setItem('ga_user_fullname', value);
+        localStorage.setItem('ga_user_email', value);
+      }
+      setQuickLoginLabel(value);
+      const secondaryValue =
+        normalizedPrimary && normalizedSecondary && normalizedPrimary !== normalizedSecondary ? normalizedSecondary : '';
+      setQuickLoginSecondary(secondaryValue);
+    }
+  };
+
+  const deriveAuthLabels = (
+    source: 'email' | 'telegram',
+    options: {
+      hint?: string;
+      profile?: AuthUserProfile | null;
+      userInfo?: UserInfo | null;
+    }
+  ): { primary: string; secondary?: string } => {
+    if (source === 'email') {
+      const directEmail =
+        normalizeLabel(options.hint) ||
+        normalizeLabel(options.profile?.email) ||
+        (options.userInfo?.username?.includes('@') ? normalizeLabel(options.userInfo.username) : '');
+      const fallbackName = normalizeLabel(
+        options.userInfo?.full_name ||
+        options.profile?.fullName ||
+        options.profile?.username ||
+        options.profile?.telegram
+      );
+      const primary = directEmail || fallbackName;
+      return { primary };
+    }
+
+    const tgUsername =
+      normalizeTelegramLabel(options.profile?.telegramUsername) ||
+      normalizeTelegramLabel(options.profile?.telegram) ||
+      normalizeTelegramLabel(options.profile?.username) ||
+      normalizeTelegramLabel(options.userInfo?.username);
+    const fullName = normalizeLabel(options.profile?.fullName || options.userInfo?.full_name);
+    const primary = fullName || tgUsername || normalizeLabel(options.profile?.email) || '';
+    const secondary = fullName && tgUsername && fullName !== tgUsername ? tgUsername : '';
+    return { primary, secondary };
+  };
+
+  const resolveAndStoreAuthLabel = async (
+    accessToken: string,
+    source: 'email' | 'telegram',
+    hint?: string,
+    userInfo?: UserInfo | null
+  ) => {
+    let profile: AuthUserProfile | null = null;
+    try {
+      profile = await fetchAuthProfile(accessToken);
+    } catch {
+      // Игнорируем ошибки, чтобы не ломать авторизацию.
+    }
+    const { primary, secondary } = deriveAuthLabels(source, { hint, profile, userInfo });
+    if (primary || secondary) {
+      storeAuthUserLabels(primary, secondary);
+    }
+  };
 
   const clearAuthTokens = () => {
     if (typeof window === 'undefined') return;
@@ -84,6 +261,10 @@ export default function LoginPage() {
     localStorage.removeItem('auth_refresh_token');
     localStorage.removeItem('auth_source');
     localStorage.removeItem('access_token');
+    localStorage.removeItem('auth_user_label');
+    localStorage.removeItem('ga_refresh_token');
+    localStorage.removeItem('ga_user_email');
+    localStorage.removeItem('ga_user_fullname');
   };
 
   const saveAuthTokens = (tokens: AuthTokens, source: 'email' | 'telegram') => {
@@ -92,29 +273,43 @@ export default function LoginPage() {
     localStorage.setItem('access_token', tokens.access_token);
     if (tokens.refresh_token) {
       localStorage.setItem('auth_refresh_token', tokens.refresh_token);
+      localStorage.setItem('ga_refresh_token', tokens.refresh_token);
     }
     localStorage.setItem('auth_source', source);
   };
 
-  const handleAuthTokens = async (tokens: AuthTokens, source: 'email' | 'telegram') => {
+  const handleAuthTokens = async (tokens: AuthTokens, source: 'email' | 'telegram', labelHint?: string) => {
     if (!tokens.access_token) {
       throw new Error(t('auth.login_error'));
     }
     saveAuthTokens(tokens, source);
 
+    let userInfo: UserInfo | null = null;
+    let userInfoError: Error | null = null;
     try {
-      await fetchUserInfoByToken(tokens.access_token);
+      userInfo = await fetchUserInfoByToken(tokens.access_token);
+    } catch (err) {
+      userInfo = null;
+      userInfoError = err instanceof Error ? err : new Error('user_info_failed');
+    }
+
+    await resolveAndStoreAuthLabel(tokens.access_token, source, labelHint, userInfo);
+
+    if (userInfo) {
       setUserToken(tokens.access_token);
       window.location.href = '/';
       return;
-    } catch {
-      // Если JWT не подходит для основного API — пробуем получить legacy token.
     }
+    if (userInfoError && /недействительный токен|401|403/i.test(userInfoError.message)) {
+      throw new Error(t('auth.login_error'));
+    }
+    // Если JWT не подходит для основного API — пробуем получить legacy token.
 
     let userId: number | null = null;
+    let verificationData: Record<string, unknown> | null = null;
     try {
-      const verification = await verifyAuthToken(tokens.access_token);
-      userId = extractUserIdFromRecord(verification);
+      verificationData = await verifyAuthToken(tokens.access_token);
+      userId = extractUserIdFromRecord(verificationData);
     } catch {
       userId = null;
     }
@@ -128,6 +323,13 @@ export default function LoginPage() {
     }
 
     if (!userId) {
+      const rawAuthId = verificationData?.user_id ?? verificationData?.sub;
+      if (typeof rawAuthId === 'string' && rawAuthId && !/^\d+$/.test(rawAuthId)) {
+        // UUID из auth-бэкенда: сохраняем access_token как user_token.
+        setUserToken(tokens.access_token);
+        window.location.href = '/';
+        return;
+      }
       throw new Error(t('auth.login_error'));
     }
 
@@ -141,9 +343,14 @@ export default function LoginPage() {
     setError('');
 
     const lang = authLanguage || 'ru';
+    const storedTheme = localStorage.getItem('opengater-theme');
+    const theme = storedTheme === 'light' ? 'light' : 'dark';
+    const statePayload = { service_name: 'Opengater' };
+    const encodedState = btoa(JSON.stringify(statePayload));
     const url = new URL(AUTH_POPUP_ORIGIN);
     url.searchParams.set('lang', lang);
-    url.searchParams.set('theme', 'light');
+    url.searchParams.set('theme', theme);
+    url.searchParams.set('state', encodedState);
 
     const popup = window.open(
       url.toString(),
@@ -235,6 +442,56 @@ export default function LoginPage() {
     clearAuthTokens();
     setUserToken(value);
     window.location.href = '/';
+  };
+
+  const handleQuickLogin = async () => {
+    if (typeof window === 'undefined') return;
+    const refreshToken = localStorage.getItem('auth_refresh_token') || localStorage.getItem('ga_refresh_token');
+    if (!refreshToken) {
+      setShowQuickLogin(false);
+      return;
+    }
+    setQuickLoginLoading(true);
+    setError('');
+    try {
+      const source =
+        (localStorage.getItem('auth_source') as 'email' | 'telegram' | null) || 'email';
+      const accessToken = localStorage.getItem('auth_access_token') || localStorage.getItem('access_token') || '';
+      if (accessToken) {
+        try {
+          const verification = await verifyAuthToken(accessToken);
+          const isActive =
+            typeof verification?.active === 'boolean' ? verification.active : true;
+          if (isActive) {
+            await handleAuthTokens(
+              { access_token: accessToken, refresh_token: refreshToken, token_type: 'bearer' },
+              source
+            );
+            return;
+          }
+        } catch {
+          // Токен невалиден — пробуем обновить по refresh token.
+        }
+      }
+      const tokens = await refreshAuthToken(refreshToken);
+      await handleAuthTokens(tokens, source);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      const isAuthError = /401|403|invalid|unauthorized/i.test(message);
+      clearAuthTokens();
+      setShowQuickLogin(false);
+      if (!isAuthError) {
+        setError(message || t('auth.login_error'));
+      }
+    } finally {
+      setQuickLoginLoading(false);
+    }
+  };
+
+  const handleOtherAccount = () => {
+    clearAuthTokens();
+    setShowQuickLogin(false);
+    setQuickLoginLabel(quickAccountLabel);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -352,26 +609,39 @@ export default function LoginPage() {
         window.location.href = '/';
         return;
       }
-      if (tokens.access_token) {
-        // Сохраняем auth-токен для привязки email и повторной авторизации.
-        saveAuthTokens(tokens, 'email');
+      if (!tokens.access_token) {
+        throw new Error(t('auth.login_error'));
       }
 
-      if (tokens.access_token) {
-        try {
-          await fetchUserInfoByToken(tokens.access_token);
-          setUserToken(tokens.access_token);
-          window.location.href = '/';
-          return;
-        } catch {
-          // Если access_token не подходит для API — идем по старому флоу.
-        }
+      // Сохраняем auth-токен для привязки email и повторной авторизации.
+      saveAuthTokens(tokens, 'email');
+      storeAuthUserLabels(normalizeLabel(pendingEmail));
+
+      let userInfo: UserInfo | null = null;
+      let userInfoError: Error | null = null;
+      try {
+        userInfo = await fetchUserInfoByToken(tokens.access_token);
+      } catch (err) {
+        userInfo = null;
+        userInfoError = err instanceof Error ? err : new Error('user_info_failed');
+      }
+
+      await resolveAndStoreAuthLabel(tokens.access_token, 'email', pendingEmail, userInfo);
+
+      if (userInfo) {
+        setUserToken(tokens.access_token);
+        window.location.href = '/';
+        return;
+      }
+      if (userInfoError && /недействительный токен|401|403/i.test(userInfoError.message)) {
+        throw new Error(t('auth.login_error'));
       }
 
       let userId: number | null = null;
+      let verificationData: Record<string, unknown> | null = null;
       try {
-        const verification = await verifyAuthToken(tokens.access_token);
-        userId = extractUserIdFromRecord(verification);
+        verificationData = await verifyAuthToken(tokens.access_token);
+        userId = extractUserIdFromRecord(verificationData);
       } catch {
         userId = null;
       }
@@ -385,6 +655,12 @@ export default function LoginPage() {
       }
 
       if (!userId) {
+        const rawAuthId = verificationData?.user_id ?? verificationData?.sub;
+        if (typeof rawAuthId === 'string' && rawAuthId && !/^\d+$/.test(rawAuthId)) {
+          setUserToken(tokens.access_token);
+          window.location.href = '/';
+          return;
+        }
         throw new Error(t('auth.login_error'));
       }
 
@@ -445,27 +721,78 @@ export default function LoginPage() {
           {error && <div className="page-module___8aEwW__error">{error}</div>}
 
           {step === 'email' ? (
-            <form onSubmit={handleSubmit}>
-              <div className="page-module___8aEwW__inputWrap">
-                <input
-                  className="page-module___8aEwW__input"
-                  placeholder=" "
-                  autoComplete="email"
-                  type="email"
-                  value={emailInput}
-                  onChange={(event) => setEmailInput(event.target.value)}
-                  disabled={isSubmitting}
-                />
-                <label className="page-module___8aEwW__inputLabel">{emailLabel}</label>
+            showQuickLogin ? (
+              <div className="page-module___8aEwW__viewSwap">
+                <div className="page-module___8aEwW__quickCard">
+                  <div className="page-module___8aEwW__quickAvatar">
+                    {(quickLoginLabel || '?')[0].toUpperCase()}
+                  </div>
+                  <div className="page-module___8aEwW__quickInfo">
+                    <span className="page-module___8aEwW__quickLabel">{quickContinueAs}</span>
+                    <span className="page-module___8aEwW__quickEmail">{quickLoginLabel}</span>
+                    {quickLoginSecondary && quickLoginSecondary !== quickLoginLabel && (
+                      <span className="page-module___8aEwW__quickLogin">{quickLoginSecondary}</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="page-module___8aEwW__quickDismiss"
+                    onClick={handleOtherAccount}
+                    aria-label="Dismiss"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 6L6 18M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  className={`page-module___8aEwW__btn page-module___8aEwW__btnPrimary ${quickLoginLoading ? 'page-module___8aEwW__btnLoading' : ''}`}
+                  disabled={quickLoginLoading}
+                  onClick={handleQuickLogin}
+                >
+                  <span className="page-module___8aEwW__btnText">{submitText}</span>
+                  {quickLoginLoading && <span className="page-module___8aEwW__spinner"></span>}
+                </button>
+
+                <div className="page-module___8aEwW__divider">
+                  <span className="page-module___8aEwW__divLine"></span>
+                  <span className="page-module___8aEwW__divText">{dividerText}</span>
+                  <span className="page-module___8aEwW__divLine"></span>
+                </div>
+
+                <button
+                  type="button"
+                  className="page-module___8aEwW__btn page-module___8aEwW__btnOutline"
+                  onClick={handleOtherAccount}
+                >
+                  {quickOtherAccount}
+                </button>
               </div>
-              <button
-                type="submit"
-                className="page-module___8aEwW__btn page-module___8aEwW__btnPrimary"
-                disabled={!emailInput || isSubmitting}
-              >
-                <span className="page-module___8aEwW__btnText">{submitText}</span>
-              </button>
-            </form>
+            ) : (
+              <form onSubmit={handleSubmit}>
+                <div className="page-module___8aEwW__inputWrap">
+                  <input
+                    className="page-module___8aEwW__input"
+                    placeholder=" "
+                    autoComplete="email"
+                    type="email"
+                    value={emailInput}
+                    onChange={(event) => setEmailInput(event.target.value)}
+                    disabled={isSubmitting}
+                  />
+                  <label className="page-module___8aEwW__inputLabel">{emailLabel}</label>
+                </div>
+                <button
+                  type="submit"
+                  className="page-module___8aEwW__btn page-module___8aEwW__btnPrimary"
+                  disabled={!emailInput || isSubmitting}
+                >
+                  <span className="page-module___8aEwW__btnText">{submitText}</span>
+                </button>
+              </form>
+            )
           ) : (
             <form onSubmit={handleVerifyCode} className="page-module___8aEwW__viewSwap">
               <div className="page-module___8aEwW__inputWrap">
@@ -511,7 +838,7 @@ export default function LoginPage() {
             </form>
           )}
 
-          {step === 'email' && (
+          {step === 'email' && !showQuickLogin && (
             <>
               <div className="page-module___8aEwW__divider">
                 <span className="page-module___8aEwW__divLine"></span>

@@ -1,5 +1,6 @@
 ﻿'use client'
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { UserInfo, fetchUserInfo, getUserToken, removeUserToken, calculateDaysRemaining } from '@/lib/api';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -16,6 +17,8 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
+  const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,9 +70,21 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         message.includes('РќРµРґРµР№СЃС‚РІРёС‚РµР»СЊРЅС‹Р№ С‚РѕРєРµРЅ') ||
         message.includes('401') ||
         message.includes('403');
-      if (!silent && isAuthError) {
+      const isServerError =
+        message.includes('Ошибка сервера: 5') ||
+        message.includes('502') ||
+        message.includes('503') ||
+        message.includes('504');
+      if (isAuthError || isServerError) {
+        removeUserToken();
         setIsAuthenticated(false);
         setUser(null);
+        if (typeof window !== 'undefined' && pathname && !pathname.startsWith('/auth')) {
+          router.replace('/auth/login');
+        }
+      } else if (!silent) {
+        // При 5xx оставляем пользователя авторизованным, чтобы не блокировать UI.
+        setIsAuthenticated(true);
       }
     } finally {
       if (!silent) {

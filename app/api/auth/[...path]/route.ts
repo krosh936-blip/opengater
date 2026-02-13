@@ -73,10 +73,15 @@ const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
       }
 
       const upstreamResponse = await fetch(url.toString(), init);
-      const shouldTryNext = [401, 403, 404, 500, 502, 503, 504].includes(upstreamResponse.status);
-      if (!upstreamResponse.ok && shouldTryNext) {
-        lastError = new Error(`Upstream ${baseUrl} responded ${upstreamResponse.status}`);
-        continue;
+      if (!upstreamResponse.ok) {
+        if ([401, 403].includes(upstreamResponse.status)) {
+          return upstreamResponse;
+        }
+        const shouldTryNext = [404, 500, 502, 503, 504].includes(upstreamResponse.status);
+        if (shouldTryNext) {
+          lastError = new Error(`Upstream ${baseUrl} responded ${upstreamResponse.status}`);
+          continue;
+        }
       }
 
       const responseHeaders = new Headers();

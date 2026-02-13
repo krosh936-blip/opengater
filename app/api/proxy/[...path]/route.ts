@@ -34,6 +34,16 @@ const buildUpstreamUrl = (baseUrl: string, req: NextRequest, pathParts: string[]
   return url;
 };
 
+const fetchWithOptionalSlash = async (url: URL, init: RequestInit) => {
+  const response = await fetch(url.toString(), init);
+  if (response.ok || response.status !== 404 || url.pathname.endsWith('/')) {
+    return response;
+  }
+  const retryUrl = new URL(url.toString());
+  retryUrl.pathname = `${retryUrl.pathname}/`;
+  return fetch(retryUrl.toString(), init);
+};
+
 const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
   const requestBody = req.method !== 'GET' && req.method !== 'HEAD' ? await req.text() : null;
   let lastError: Error | null = null;
@@ -66,7 +76,7 @@ const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
         init.body = requestBody;
       }
 
-      const upstreamResponse = await fetch(url.toString(), init);
+      const upstreamResponse = await fetchWithOptionalSlash(url, init);
       const shouldTryNext = [401, 403, 404, 500, 502, 503, 504].includes(upstreamResponse.status);
       if (!upstreamResponse.ok && shouldTryNext) {
         lastError = new Error(`Upstream ${baseUrl} responded ${upstreamResponse.status}`);

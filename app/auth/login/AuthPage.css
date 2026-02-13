@@ -62,6 +62,7 @@ body{background:#fff;color:#111111;-webkit-font-smoothing:antialiased;-moz-osx-f
 .page-module___8aEwW__quickInfo{flex-direction:column;flex:1;align-items:flex-start;min-width:0;display:flex}
 .page-module___8aEwW__quickLabel{color:var(--text-tertiary);font-size:12px;line-height:1.2}
 .page-module___8aEwW__quickEmail{color:var(--text);text-overflow:ellipsis;white-space:nowrap;max-width:100%;font-size:14px;font-weight:500;line-height:1.3;overflow:hidden}
+.page-module___8aEwW__quickLogin{color:var(--text-tertiary);text-overflow:ellipsis;white-space:nowrap;max-width:100%;font-size:12px;line-height:1.2;overflow:hidden}
 .page-module___8aEwW__quickDismiss{color:var(--text-tertiary);cursor:pointer;background:0 0;border:none;border-radius:50%;flex-shrink:0;justify-content:center;align-items:center;padding:4px;transition:color .2s;display:flex}
 .page-module___8aEwW__quickDismiss:hover{color:var(--text)}
 @media (max-width:480px){.page-module___8aEwW__title{font-size:30px}.page-module___8aEwW__backArrow{top:16px;left:16px}.page-module___8aEwW__closeBtn{top:16px;right:16px}}

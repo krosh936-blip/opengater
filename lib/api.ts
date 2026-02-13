@@ -231,6 +231,32 @@ const buildAuthHeaders = (token?: string | null): HeadersInit => {
   return { 'Authorization': `Bearer ${token}` };
 };
 
+const buildJsonHeaders = (token?: string | null): HeadersInit => ({
+  'Accept': 'application/json',
+  'Content-Type': 'application/json',
+  ...buildAuthHeaders(token),
+});
+
+const fetchJsonWithFallbacks = async <T>(attempts: Array<{ url: string; init: RequestInit }>): Promise<T> => {
+  let lastError: Error | null = null;
+  for (const attempt of attempts) {
+    try {
+      const response = await fetch(attempt.url, attempt.init);
+      if (!response.ok) {
+        lastError = new Error(`Ошибка сервера: ${response.status}`);
+        continue;
+      }
+      return response.json();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Ошибка сети');
+    }
+  }
+  if (lastError) {
+    throw lastError;
+  }
+  throw new Error('Не удалось получить данные');
+};
+
 
 // Функция для получения user_token из localStorage или cookies
 export const getUserToken = (): string | null => {
@@ -367,28 +393,52 @@ export const fetchBalance = async (): Promise<{
 };
 
 export const fetchCurrencies = async (): Promise<Currency[]> => {
-  const response = await fetch(`${API_PROXY_BASE_URL}/currency/`, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-  });
+  const endpoints = [
+    `${API_PROXY_BASE_URL}/public/currencies/`,
+    `${API_PROXY_BASE_URL}/currency/`,
+    `${API_PROXY_BASE_URL}/currencies/`,
+  ];
 
-  if (!response.ok) {
-    const cached = cacheGet<Currency[]>('currencies', CACHE_TTL.currencies);
-    if (cached) return cached;
-    throw new Error(`Ошибка сервера: ${response.status}`);
+  let lastError: Error | null = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        lastError = new Error(`Ошибка сервера: ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        cacheSet('currencies', data);
+        return data;
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown error');
+    }
   }
 
-  const data = await response.json();
-  cacheSet('currencies', data);
-  return data;
+  if (lastError) {
+    const cached = cacheGet<Currency[]>('currencies', CACHE_TTL.currencies);
+    if (cached) return cached;
+    throw lastError;
+  }
+
+  throw new Error('Не удалось загрузить список валют');
 };
 
 export const fetchLanguages = async (): Promise<LanguageOption[]> => {
   const endpoints = [
+    `${API_PROXY_BASE_URL}/public/languages/`,
     `${API_PROXY_BASE_URL}/language/`,
     `${API_PROXY_BASE_URL}/languages/`,
   ];
@@ -444,119 +494,321 @@ export const calculateDaysRemaining = (expireDate: string): string => {
 
 
 export const fetchAvailableLocations = async (userId: number): Promise<LocationItem[]> => {
-  const response = await fetch(`${API_PROXY_BASE_URL}/user/locations/available`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ id: userId }),
-    credentials: 'include',
+  const token = getUserToken();
+  const headers = buildJsonHeaders(token);
+  const attempts: Array<{ url: string; init: RequestInit }> = [];
+
+  attempts.push({
+    url: `${API_PROXY_BASE_URL}/user/locations/available`,
+    init: { method: 'GET', headers, credentials: 'include' },
   });
 
-  if (!response.ok) {
-    throw new Error(`Ошибка сервера: ${response.status}`);
+  if (token) {
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/user/locations/available?token=${encodeURIComponent(token)}`,
+      init: { method: 'GET', headers, credentials: 'include' },
+    });
   }
 
-  return response.json();
+  attempts.push({
+    url: `${API_PROXY_BASE_URL}/user/locations/available`,
+    init: {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ user_id: userId }),
+      credentials: 'include',
+    },
+  });
+
+  attempts.push({
+    url: `${API_PROXY_BASE_URL}/user/locations/available`,
+    init: {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ id: userId }),
+      credentials: 'include',
+    },
+  });
+
+  return fetchJsonWithFallbacks<LocationItem[]>(attempts);
 };
 
 export const updateLocations = async (userId: number, locations: number[]): Promise<string> => {
-  const response = await fetch(`${API_PROXY_BASE_URL}/user/locations/update`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
+  const token = getUserToken();
+  const headers = buildJsonHeaders(token);
+  const attempts: Array<{ url: string; init: RequestInit }> = [
+    {
+      url: `${API_PROXY_BASE_URL}/user/locations/`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ locations }),
+        credentials: 'include',
+      },
     },
-    body: JSON.stringify({ user_id: userId, locations }),
-    credentials: 'include',
-  });
+    {
+      url: `${API_PROXY_BASE_URL}/user/locations/`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ user_id: userId, locations }),
+        credentials: 'include',
+      },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/user/locations/`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ id: userId, locations }),
+        credentials: 'include',
+      },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/user/locations/update`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ user_id: userId, locations }),
+        credentials: 'include',
+      },
+    },
+  ];
 
-  if (!response.ok) {
-    throw new Error(`Ошибка сервера: ${response.status}`);
+  if (token) {
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/user/locations/?token=${encodeURIComponent(token)}`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ locations }),
+        credentials: 'include',
+      },
+    });
   }
 
-  return response.json();
+  return fetchJsonWithFallbacks<string>(attempts);
 };
 
 export const setUserCurrency = async (userId: number, currency: string): Promise<string> => {
-  const response = await fetch(`${API_PROXY_BASE_URL}/user/currency`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
+  const token = getUserToken();
+  const headers = buildJsonHeaders(token);
+  const attempts: Array<{ url: string; init: RequestInit }> = [
+    {
+      url: `${API_PROXY_BASE_URL}/user/currency`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ currency_code: currency }),
+        credentials: 'include',
+      },
     },
-    body: JSON.stringify({ user_id: userId, currency_code: currency }),
-    credentials: 'include',
-  });
+    {
+      url: `${API_PROXY_BASE_URL}/user/currency`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ currency: currency }),
+        credentials: 'include',
+      },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/user/currency`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ user_id: userId, currency_code: currency }),
+        credentials: 'include',
+      },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/user/currency`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ id: userId, currency_code: currency }),
+        credentials: 'include',
+      },
+    },
+  ];
 
-  if (!response.ok) {
-    throw new Error(`Ошибка сервера: ${response.status}`);
+  if (token) {
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/user/currency?token=${encodeURIComponent(token)}`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ currency_code: currency }),
+        credentials: 'include',
+      },
+    });
   }
 
-  return response.json();
+  return fetchJsonWithFallbacks<string>(attempts);
 };
 
 export const fetchDeviceButtons = async (userId: number): Promise<DeviceButtonOption[]> => {
-  const request = async (body: Record<string, unknown>) => {
-    return fetch(`${API_PROXY_BASE_URL}/devices/number/buttons`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      credentials: 'include',
+  const token = getUserToken();
+  const headers = buildJsonHeaders(token);
+  const attempts: Array<{ url: string; init: RequestInit }> = [
+    {
+      url: `${API_PROXY_BASE_URL}/user/devices/number/buttons`,
+      init: { method: 'GET', headers, credentials: 'include' },
+    },
+  ];
+
+  if (token) {
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/user/devices/number/buttons?token=${encodeURIComponent(token)}`,
+      init: { method: 'GET', headers, credentials: 'include' },
     });
-  };
-
-  let response = await request({ user_id: userId });
-
-  if (response.status === 422) {
-    response = await request({ id: userId });
   }
 
-  if (!response.ok) {
-    throw new Error(`Ошибка сервера: ${response.status}`);
-  }
+  attempts.push(
+    {
+      url: `${API_PROXY_BASE_URL}/user/devices/number/buttons`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ user_id: userId }),
+        credentials: 'include',
+      },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/user/devices/number/buttons`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ id: userId }),
+        credentials: 'include',
+      },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/devices/number/buttons`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ user_id: userId }),
+        credentials: 'include',
+      },
+    }
+  );
 
-  return response.json();
+  return fetchJsonWithFallbacks<DeviceButtonOption[]>(attempts);
 };
 
 export const setDeviceNumber = async (userId: number, deviceNumber: number): Promise<number> => {
-  const response = await fetch(`${API_PROXY_BASE_URL}/devices/number/set`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
+  const token = getUserToken();
+  const headers = buildJsonHeaders(token);
+  const attempts: Array<{ url: string; init: RequestInit }> = [
+    {
+      url: `${API_PROXY_BASE_URL}/user/devices/number/`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ device_number: deviceNumber }),
+        credentials: 'include',
+      },
     },
-    body: JSON.stringify({ user_id: userId, device_number: deviceNumber }),
-    credentials: 'include',
-  });
+    {
+      url: `${API_PROXY_BASE_URL}/user/devices/number/`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ user_id: userId, device_number: deviceNumber }),
+        credentials: 'include',
+      },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/user/devices/number/`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ id: userId, device_number: deviceNumber }),
+        credentials: 'include',
+      },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/devices/number/set`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ user_id: userId, device_number: deviceNumber }),
+        credentials: 'include',
+      },
+    },
+  ];
 
-  if (!response.ok) {
-    throw new Error(`Ошибка сервера: ${response.status}`);
+  if (token) {
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/user/devices/number/?token=${encodeURIComponent(token)}`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ device_number: deviceNumber }),
+        credentials: 'include',
+      },
+    });
   }
 
-  return response.json();
+  return fetchJsonWithFallbacks<number>(attempts);
 };
 
 export const fetchDeviceTariff = async (userId: number, deviceNumber: number): Promise<DeviceTariffResponse> => {
-  const response = await fetch(`${API_PROXY_BASE_URL}/devices/number/tariff`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
+  const token = getUserToken();
+  const headers = buildJsonHeaders(token);
+  const attempts: Array<{ url: string; init: RequestInit }> = [
+    {
+      url: `${API_PROXY_BASE_URL}/user/devices/number/tariff`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ device_number: deviceNumber }),
+        credentials: 'include',
+      },
     },
-    body: JSON.stringify({ user_id: userId, device_number: deviceNumber }),
-    credentials: 'include',
-  });
+    {
+      url: `${API_PROXY_BASE_URL}/user/devices/number/tariff`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ user_id: userId, device_number: deviceNumber }),
+        credentials: 'include',
+      },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/user/devices/number/tariff`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ id: userId, device_number: deviceNumber }),
+        credentials: 'include',
+      },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/devices/number/tariff`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ user_id: userId, device_number: deviceNumber }),
+        credentials: 'include',
+      },
+    },
+  ];
 
-  if (!response.ok) {
-    throw new Error(`Ошибка сервера: ${response.status}`);
+  if (token) {
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/user/devices/number/tariff?token=${encodeURIComponent(token)}`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ device_number: deviceNumber }),
+        credentials: 'include',
+      },
+    });
   }
 
-  return response.json();
+  return fetchJsonWithFallbacks<DeviceTariffResponse>(attempts);
 };
 
 export const fetchReferredUsers = async (): Promise<ReferredUser[]> => {
@@ -784,11 +1036,13 @@ export const fetchAuthUserId = async (accessToken: string): Promise<number | nul
 };
 
 export interface AuthUserProfile {
-  id?: number;
+  id?: number | string;
   email?: string;
   username?: string;
   telegram?: string;
   telegramLinked?: boolean;
+  fullName?: string;
+  telegramUsername?: string;
 }
 
 interface AuthMethodEntry {
@@ -798,6 +1052,8 @@ interface AuthMethodEntry {
   first_name?: string;
   telegram_username?: string;
   tg_username?: string;
+  extra_data?: Record<string, unknown>;
+  extraData?: Record<string, unknown>;
 }
 
 const isNumericIdentifier = (value: string): boolean => /^\d+$/.test(value.trim());
@@ -805,11 +1061,13 @@ const isNumericIdentifier = (value: string): boolean => /^\d+$/.test(value.trim(
 const normalizeTelegramValue = (value?: string): string | undefined => {
   if (!value) return undefined;
   const trimmed = value.trim();
-  if (!trimmed || isNumericIdentifier(trimmed)) return undefined;
-  return trimmed.replace(/^@/, '');
+  if (!trimmed) return undefined;
+  const normalized = trimmed.replace(/^@/, '');
+  if (!normalized || isNumericIdentifier(normalized)) return undefined;
+  return normalized;
 };
 
-const parseAuthMethods = (data: unknown): { email?: string; telegram?: string; telegramLinked?: boolean } => {
+const parseAuthMethods = (data: unknown): { email?: string; telegram?: string; telegramLinked?: boolean; telegramUsername?: string; fullName?: string } => {
   if (!data || typeof data !== 'object') return {};
   const record = data as Record<string, unknown>;
   const list =
@@ -821,6 +1079,8 @@ const parseAuthMethods = (data: unknown): { email?: string; telegram?: string; t
   let email: string | undefined;
   let telegram: string | undefined;
   let telegramLinked = false;
+  let telegramUsername: string | undefined;
+  let fullName: string | undefined;
 
   for (const entry of list) {
     if (!entry || typeof entry !== 'object') continue;
@@ -833,28 +1093,52 @@ const parseAuthMethods = (data: unknown): { email?: string; telegram?: string; t
 
     if (type === 'telegram' || type === 'tg') {
       telegramLinked = true;
-      if (telegram) continue;
-      const username = method.username || method.telegram_username || method.tg_username;
+      const extra = (method.extra_data || method.extraData) as Record<string, unknown> | undefined;
+      const extraUsername =
+        (typeof extra?.username === 'string' ? extra.username : undefined) ||
+        (typeof extra?.telegram_username === 'string' ? extra.telegram_username : undefined) ||
+        (typeof extra?.tg_username === 'string' ? extra.tg_username : undefined);
+      const extraFull =
+        (typeof extra?.full_name === 'string' ? extra.full_name : undefined) ||
+        (typeof extra?.fullName === 'string' ? extra.fullName : undefined);
+      const extraFirst =
+        (typeof extra?.first_name === 'string' ? extra.first_name : undefined) ||
+        (typeof extra?.firstName === 'string' ? extra.firstName : undefined);
+      const extraLast =
+        (typeof extra?.last_name === 'string' ? extra.last_name : undefined) ||
+        (typeof extra?.lastName === 'string' ? extra.lastName : undefined);
+      const candidateFullName = (extraFull || [extraFirst, extraLast].filter(Boolean).join(' ')).trim();
+      if (!fullName && candidateFullName) {
+        fullName = candidateFullName;
+      }
+
+      const username = method.username || method.telegram_username || method.tg_username || extraUsername;
       const normalized = normalizeTelegramValue(
         typeof username === 'string' ? username : typeof method.first_name === 'string' ? method.first_name : undefined
       );
-      if (normalized) {
-        telegram = normalized;
-        continue;
+      if (!telegramUsername && normalized) {
+        telegramUsername = normalized;
       }
-      if (typeof method.identifier === 'string') {
+      if (!telegram && normalized) {
+        telegram = normalized;
+      }
+
+      if (!telegram && typeof method.identifier === 'string') {
         const fallback = normalizeTelegramValue(method.identifier);
         if (fallback) {
           telegram = fallback;
+          if (!telegramUsername) {
+            telegramUsername = fallback;
+          }
         }
       }
     }
   }
 
-  return { email, telegram, telegramLinked };
+  return { email, telegram, telegramLinked, telegramUsername, fullName };
 };
 
-export const fetchAuthMethods = async (accessToken: string): Promise<{ email?: string; telegram?: string; telegramLinked?: boolean } | null> => {
+export const fetchAuthMethods = async (accessToken: string): Promise<{ email?: string; telegram?: string; telegramLinked?: boolean; telegramUsername?: string; fullName?: string } | null> => {
   const response = await authFetch(`/users/me/auth-methods`, {
     method: 'GET',
     headers: {
@@ -895,11 +1179,13 @@ export const fetchAuthProfile = async (accessToken: string): Promise<AuthUserPro
   }
 
   const data = await response.json().catch(() => ({})) as Record<string, unknown>;
-  const id = extractUserId(data) ?? undefined;
+  const id = extractUserId(data) ?? (typeof data.id === 'string' ? data.id : undefined);
 
   let email: string | undefined;
   let telegram: string | undefined;
   let telegramLinked = false;
+  let fullName: string | undefined;
+  let telegramUsername: string | undefined;
 
   if (Array.isArray(data.auth_methods)) {
     for (const method of data.auth_methods) {
@@ -907,6 +1193,24 @@ export const fetchAuthProfile = async (accessToken: string): Promise<AuthUserPro
       const record = method as Record<string, unknown>;
       const authType = typeof record.auth_type === 'string' ? record.auth_type.toLowerCase() : '';
       const identifier = typeof record.identifier === 'string' ? record.identifier : undefined;
+      const extra = (record.extra_data || record.extraData) as Record<string, unknown> | undefined;
+      const extraUsername =
+        (typeof extra?.username === 'string' ? extra.username : undefined) ||
+        (typeof extra?.telegram_username === 'string' ? extra.telegram_username : undefined) ||
+        (typeof extra?.tg_username === 'string' ? extra.tg_username : undefined);
+      const extraFull =
+        (typeof extra?.full_name === 'string' ? extra.full_name : undefined) ||
+        (typeof extra?.fullName === 'string' ? extra.fullName : undefined);
+      const extraFirst =
+        (typeof extra?.first_name === 'string' ? extra.first_name : undefined) ||
+        (typeof extra?.firstName === 'string' ? extra.firstName : undefined);
+      const extraLast =
+        (typeof extra?.last_name === 'string' ? extra.last_name : undefined) ||
+        (typeof extra?.lastName === 'string' ? extra.lastName : undefined);
+      const candidateFullName = (extraFull || [extraFirst, extraLast].filter(Boolean).join(' ')).trim();
+      if (!fullName && candidateFullName) {
+        fullName = candidateFullName;
+      }
       if (authType === 'email' && identifier) {
         email = identifier;
       }
@@ -919,12 +1223,17 @@ export const fetchAuthProfile = async (accessToken: string): Promise<AuthUserPro
               ? record.telegram_username
               : typeof record.tg_username === 'string'
                 ? record.tg_username
-                : typeof record.first_name === 'string'
-                  ? record.first_name
-                  : identifier
+                : typeof extraUsername === 'string'
+                  ? extraUsername
+                  : typeof record.first_name === 'string'
+                    ? record.first_name
+                    : identifier
         );
         if (normalized) {
           telegram = normalized;
+          if (!telegramUsername) {
+            telegramUsername = normalized;
+          }
         }
       }
     }
@@ -961,13 +1270,15 @@ export const fetchAuthProfile = async (accessToken: string): Promise<AuthUserPro
         email = email || methods.email;
         telegram = telegram || methods.telegram;
         telegramLinked = telegramLinked || !!methods.telegramLinked || !!methods.telegram;
+        fullName = fullName || methods.fullName;
+        telegramUsername = telegramUsername || methods.telegramUsername;
       }
     } catch {
       // Игнорируем ошибки, чтобы не ломать профиль.
     }
   }
 
-  const profile = { id, email, username, telegram, telegramLinked };
+  const profile = { id, email, username, telegram, telegramLinked, fullName, telegramUsername };
   cacheSet('auth_profile', profile, { token: accessToken });
   return profile;
 };
@@ -1055,6 +1366,20 @@ export const linkTelegramToAuth = async (
   }
 
   return data as Record<string, unknown>;
+};
+
+export const refreshAuthToken = async (refreshToken: string): Promise<AuthTokens> => {
+  const response = await authFetch(`/auth/jwt/refresh?refresh_token=${encodeURIComponent(refreshToken)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(getAuthErrorMessage(response, data));
+  }
+
+  return data as AuthTokens;
 };
 
 

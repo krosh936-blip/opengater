@@ -21,7 +21,7 @@ const Header: React.FC = () => {
   
   const name = user?.full_name || user?.username || authProfile?.email || authProfile?.telegram || (isLoading || !authLoaded ? '' : 'Гость');
   const email = authProfile?.email || user?.username || '';
-  const uid = user?.id ? String(user.id) : '';
+  const uid = user?.id ? String(user.id) : authProfile?.id ? String(authProfile.id) : '';
   const subscriptionActive = !!user && new Date(user.expire).getTime() > Date.now();
   const userData = {
     name,

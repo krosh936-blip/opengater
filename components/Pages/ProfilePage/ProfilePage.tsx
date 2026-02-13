@@ -23,10 +23,13 @@ const getInitials = (value: string) => {
 const formatTelegramDisplay = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) return '';
-  if (/^\d+$/.test(trimmed)) return '';
-  if (trimmed.startsWith('@')) return trimmed;
-  const handleLike = /^(?=.*[a-zA-Z_])[a-zA-Z0-9_]{3,}$/.test(trimmed);
-  return handleLike ? `@${trimmed}` : trimmed;
+  const normalized = trimmed.replace(/^@/, '');
+  if (!normalized || /^\d+$/.test(normalized)) return '';
+  const handleLike = /^(?=.*[a-zA-Z_])[a-zA-Z0-9_]{3,}$/.test(normalized);
+  if (handleLike) {
+    return `@${normalized}`;
+  }
+  return trimmed;
 };
 
 export default function ProfilePage({ onBack }: ProfilePageProps) {
@@ -37,6 +40,7 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
   const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
   const [linkedTelegram, setLinkedTelegram] = useState<string | null>(null);
   const [telegramLinked, setTelegramLinked] = useState(false);
+  const [authProfileId, setAuthProfileId] = useState<string | null>(null);
   const popupRef = useRef<Window | null>(null);
   const popupOrigin = AUTH_POPUP_ORIGIN;
 
@@ -52,22 +56,36 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
   }, [toast]);
 
   const rawUsername = user?.username || '';
+  const hasTelegramLikeUsername = !!rawUsername && !rawUsername.includes('@');
+  const inferredTelegram = hasTelegramLikeUsername ? formatTelegramDisplay(rawUsername) : '';
   const authInfo = useMemo(() => {
     const email = linkedEmail || (rawUsername.includes('@') ? rawUsername : '');
     const telegramSource =
       linkedTelegram ||
-      (telegramLinked && rawUsername && !rawUsername.includes('@') ? rawUsername : '');
+      (telegramLinked && rawUsername && !rawUsername.includes('@') ? rawUsername : '') ||
+      inferredTelegram;
     const telegram = telegramSource ? formatTelegramDisplay(telegramSource) : '';
-    return { email, telegram, telegramLinked };
-  }, [linkedEmail, linkedTelegram, rawUsername, telegramLinked]);
+    const resolvedTelegramLinked = telegramLinked || !!telegram || hasTelegramLikeUsername;
+    return { email, telegram, telegramLinked: resolvedTelegramLinked };
+  }, [linkedEmail, linkedTelegram, rawUsername, telegramLinked, inferredTelegram, hasTelegramLikeUsername]);
   const displayName = user?.full_name || user?.username || authInfo.email || authInfo.telegram || '---';
   const displayUsername =
     rawUsername && rawUsername !== displayName
       ? (rawUsername.includes('@') ? rawUsername : `@${rawUsername.replace(/^@/, '')}`)
       : '';
   const initials = getInitials(displayName);
-  const uid = user?.id ? String(user.id) : '';
+  const uid = user?.id ? String(user.id) : authProfileId || '';
   const subscriptionActive = !!user && new Date(user.expire).getTime() > Date.now();
+
+  const syncAuthProfile = async (token: string) => {
+    const profile = await fetchAuthProfile(token);
+    if (!profile) return null;
+    setLinkedEmail(profile.email || null);
+    setLinkedTelegram(profile.telegram || null);
+    setTelegramLinked(!!profile.telegramLinked || !!profile.telegram);
+    setAuthProfileId(profile.id ? String(profile.id) : null);
+    return profile;
+  };
 
   const loadAuthProfile = async () => {
     if (typeof window === 'undefined') return;
@@ -76,15 +94,10 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
       setLinkedEmail(null);
       setLinkedTelegram(null);
       setTelegramLinked(false);
+      setAuthProfileId(null);
       return;
     }
-    const profile = await fetchAuthProfile(token);
-    if (!profile) {
-      return;
-    }
-    setLinkedEmail(profile.email || null);
-    setLinkedTelegram(profile.telegram || null);
-    setTelegramLinked(!!profile.telegramLinked || !!profile.telegram);
+    await syncAuthProfile(token);
   };
 
   useEffect(() => {
@@ -122,9 +135,18 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
         const payload = (data as { user: TelegramAuthPayload }).user;
         linkTelegramToAuth(token, payload)
           .then(() => {
-            setToast(t('profile.telegram_linked'));
+            syncAuthProfile(token)
+              .then((profile) => {
+                if (profile?.telegram || profile?.telegramLinked) {
+                  setToast(t('profile.telegram_linked'));
+                } else {
+                  setToast(t('profile.telegram_link_failed'));
+                }
+              })
+              .catch(() => {
+                setToast(t('profile.telegram_link_failed'));
+              });
             refreshUser({ silent: true }).catch(() => {});
-            loadAuthProfile().catch(() => {});
             if (popupRef.current && !popupRef.current.closed) {
               popupRef.current.close();
             }
@@ -132,9 +154,18 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
           .catch((err: unknown) => {
             const status = (err as { status?: number })?.status;
             if (status === 409) {
-              setToast(t('profile.telegram_linked'));
+              syncAuthProfile(token)
+                .then((profile) => {
+                  if (profile?.telegram || profile?.telegramLinked) {
+                    setToast(t('profile.telegram_linked'));
+                  } else {
+                    setToast(t('profile.telegram_link_failed'));
+                  }
+                })
+                .catch(() => {
+                  setToast(t('profile.telegram_link_failed'));
+                });
               refreshUser({ silent: true }).catch(() => {});
-              loadAuthProfile().catch(() => {});
               return;
             }
             const message = err instanceof Error ? err.message : t('common.error_prefix');

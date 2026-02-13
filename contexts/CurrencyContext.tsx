@@ -17,6 +17,9 @@ interface CurrencyContextType {
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'currency_code';
+const PENDING_KEY = 'currency_pending_code';
+const PENDING_TS_KEY = 'currency_pending_ts';
+const PENDING_TTL_MS = 60 * 1000;
 
 const DEFAULT_CURRENCIES: Currency[] = [
   { code: 'RUB', symbol: '₽', rate: 1, rounding_precision: 0, id: 1, hidden: false },
@@ -83,10 +86,23 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!user?.currency?.code) return;
-    setSelectedCode(user.currency.code);
     if (typeof window !== 'undefined') {
+      const pending = localStorage.getItem(PENDING_KEY);
+      const pendingTs = Number(localStorage.getItem(PENDING_TS_KEY) || 0);
+      if (pending) {
+        if (pending === user.currency.code) {
+          localStorage.removeItem(PENDING_KEY);
+          localStorage.removeItem(PENDING_TS_KEY);
+        } else if (Date.now() - pendingTs < PENDING_TTL_MS) {
+          return;
+        } else {
+          localStorage.removeItem(PENDING_KEY);
+          localStorage.removeItem(PENDING_TS_KEY);
+        }
+      }
       localStorage.setItem(STORAGE_KEY, user.currency.code);
     }
+    setSelectedCode(user.currency.code);
   }, [user?.currency?.code]);
 
   useEffect(() => {
@@ -137,6 +153,8 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
     if (code === selectedCode) return;
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_KEY, code);
+      localStorage.setItem(PENDING_KEY, code);
+      localStorage.setItem(PENDING_TS_KEY, String(Date.now()));
     }
     setSelectedCode(code);
     if (!user?.id) {
@@ -148,14 +166,16 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
       }
       return;
     }
+    let shouldReload = false;
     try {
       // Сохраняем выбор на бэкенде, чтобы все эндпоинты вернули значения в новой валюте.
       await setUserCurrency(user.id, code);
+      shouldReload = true;
     } catch {
       // keep local selection even if API update fails
     } finally {
       setCurrencyRefreshId((prev) => prev + 1);
-      if (typeof window !== 'undefined') {
+      if (shouldReload && typeof window !== 'undefined') {
         window.location.reload();
       }
     }
