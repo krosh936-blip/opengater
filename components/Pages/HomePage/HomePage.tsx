@@ -20,7 +20,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
 
   // Используем хук для получения данных пользователя
   const { user, isLoading, error, isAuthenticated } = useUser();
-  const { language, t } = useLanguage();
+  const { language, t, languageRefreshId } = useLanguage();
 
   const touchStateRef = useRef({ startX: 0, currentX: 0, isDragging: false });
 
@@ -176,7 +176,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     const loadLocations = async () => {
       if (!user?.id) return;
       try {
-        const data = await fetchAvailableLocations(user.id);
+        const data = await fetchAvailableLocations(user.id, language);
         if (mounted) {
           setLocations(Array.isArray(data) ? data : []);
         }
@@ -190,7 +190,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     return () => {
       mounted = false;
     };
-  }, [user?.id, user?.currency?.code]);
+  }, [user?.id, user?.currency?.code, language, languageRefreshId]);
 
   const balanceAmount = user?.balance ?? 0;
   const displayAmount = formatNumber(balanceAmount);

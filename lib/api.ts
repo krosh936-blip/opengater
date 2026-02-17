@@ -1,13 +1,24 @@
+import { AUTH_PROFILE_ENABLED } from '@/lib/appConfig';
+
 ﻿const API_BASE_URL = 'https://api.bot.eutochkin.com/api';
 
 
 const API_PROXY_BASE_URL = '/api/proxy';
-const AUTH_BACKEND_DIRECT_URL = 'https://api.bot.eutochkin.com/api';
-const AUTH_BACKEND_ALT_URL = 'https://api.bot.eutochkin.com';
-const AUTH_BACKEND_FALLBACK_URL = 'https://auth.bot.eutochkin.com';
+const AUTH_BACKEND_DIRECT_URL = 'https://cdn.opngtr.ru/api';
+const AUTH_BACKEND_ALT_URL = 'https://opngtr.com/api';
+const AUTH_BACKEND_FALLBACK_URL = 'https://cdn.opngtr.ru';
+const AUTH_BACKEND_NEW_URL = 'https://opngtr.com';
+const AUTH_BACKEND_NEW_API_URL = 'https://cdn.opngtr.ru/api';
+// const AUTH_BACKEND_DIRECT_URL = 'https://api.bot.eutochkin.com/api';
+// const AUTH_BACKEND_ALT_URL = 'https://api.bot.eutochkin.com';
+// const AUTH_BACKEND_FALLBACK_URL = 'https://auth.bot.eutochkin.com';
+// const AUTH_BACKEND_NEW_URL = 'https://auth.bot.lk.eutochkin.com';
+// const AUTH_BACKEND_NEW_API_URL = 'https://auth.bot.lk.eutochkin.com/api';
 const AUTH_BACKEND_PROXY_URL = '/api/auth';
 const AUTH_BACKEND_URLS = [
   AUTH_BACKEND_PROXY_URL,
+  AUTH_BACKEND_NEW_URL,
+  AUTH_BACKEND_NEW_API_URL,
   AUTH_BACKEND_DIRECT_URL,
   AUTH_BACKEND_ALT_URL,
   AUTH_BACKEND_FALLBACK_URL,
@@ -178,6 +189,12 @@ export interface LocationItem {
   flag?: string;
   name?: string;
   description?: string;
+  name_ru?: string;
+  name_en?: string;
+  name_am?: string;
+  description_ru?: string;
+  description_en?: string;
+  description_am?: string;
   price?: number;
   speed?: number;
   hidden?: boolean;
@@ -283,6 +300,7 @@ export const removeUserToken = (): void => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('user_token');
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_id');
   }
 };
 
@@ -493,39 +511,52 @@ export const calculateDaysRemaining = (expireDate: string): string => {
 };
 
 
-export const fetchAvailableLocations = async (userId: number): Promise<LocationItem[]> => {
+export const fetchAvailableLocations = async (userId: number, language?: string): Promise<LocationItem[]> => {
   const token = getUserToken();
-  const headers = buildJsonHeaders(token);
+  const apiLanguage = language === 'am' ? 'hy' : language;
+  const headers = {
+    ...buildJsonHeaders(token),
+    ...(apiLanguage ? { 'Accept-Language': apiLanguage } : {}),
+  };
+  const languageQuery = apiLanguage ? `language_code=${encodeURIComponent(apiLanguage)}` : '';
+  const withLanguage = (url: string) => {
+    if (!languageQuery) return url;
+    return url.includes('?') ? `${url}&${languageQuery}` : `${url}?${languageQuery}`;
+  };
   const attempts: Array<{ url: string; init: RequestInit }> = [];
 
   attempts.push({
-    url: `${API_PROXY_BASE_URL}/user/locations/available`,
+    url: withLanguage(`${API_PROXY_BASE_URL}/user/locations/available`),
     init: { method: 'GET', headers, credentials: 'include' },
   });
 
   if (token) {
     attempts.push({
-      url: `${API_PROXY_BASE_URL}/user/locations/available?token=${encodeURIComponent(token)}`,
+      url: withLanguage(`${API_PROXY_BASE_URL}/user/locations/available?token=${encodeURIComponent(token)}`),
       init: { method: 'GET', headers, credentials: 'include' },
     });
   }
 
+  const languagePayload = apiLanguage
+    ? { language_code: apiLanguage, language: apiLanguage }
+    : {};
+
   attempts.push({
-    url: `${API_PROXY_BASE_URL}/user/locations/available`,
+    url: withLanguage(`${API_PROXY_BASE_URL}/user/locations/available`),
     init: {
       method: 'POST',
       headers,
-      body: JSON.stringify({ user_id: userId }),
+      body: JSON.stringify({ user_id: userId, ...languagePayload }),
       credentials: 'include',
     },
   });
 
   attempts.push({
-    url: `${API_PROXY_BASE_URL}/user/locations/available`,
+    url: withLanguage(`${API_PROXY_BASE_URL}/user/locations/available`),
     init: {
       method: 'POST',
       headers,
-      body: JSON.stringify({ id: userId }),
+      body: JSON.stringify({ id: userId, ...languagePayload }),
       credentials: 'include',
     },
   });
@@ -639,6 +670,69 @@ export const setUserCurrency = async (userId: number, currency: string): Promise
         method: 'POST',
         headers,
         body: JSON.stringify({ currency_code: currency }),
+        credentials: 'include',
+      },
+    });
+  }
+
+  return fetchJsonWithFallbacks<string>(attempts);
+};
+
+export const setUserLanguage = async (language: string, userId?: number | null): Promise<string> => {
+  const token = getUserToken();
+  const headers = buildJsonHeaders(token);
+  const apiLanguage = language === 'am' ? 'hy' : language;
+  const attempts: Array<{ url: string; init: RequestInit }> = [
+    {
+      url: `${API_PROXY_BASE_URL}/user/language`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ language_code: apiLanguage }),
+        credentials: 'include',
+      },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/user/language`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ language: apiLanguage }),
+        credentials: 'include',
+      },
+    },
+  ];
+
+  if (userId) {
+    attempts.push(
+      {
+        url: `${API_PROXY_BASE_URL}/user/language`,
+        init: {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ user_id: userId, language_code: apiLanguage }),
+          credentials: 'include',
+        },
+      },
+      {
+        url: `${API_PROXY_BASE_URL}/user/language`,
+        init: {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ id: userId, language_code: apiLanguage }),
+          credentials: 'include',
+        },
+      }
+    );
+  }
+
+  if (token) {
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/user/language?token=${encodeURIComponent(token)}`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ language_code: apiLanguage }),
         credentials: 'include',
       },
     });
@@ -1139,6 +1233,9 @@ const parseAuthMethods = (data: unknown): { email?: string; telegram?: string; t
 };
 
 export const fetchAuthMethods = async (accessToken: string): Promise<{ email?: string; telegram?: string; telegramLinked?: boolean; telegramUsername?: string; fullName?: string } | null> => {
+  if (!AUTH_PROFILE_ENABLED) {
+    return null;
+  }
   const response = await authFetch(`/users/me/auth-methods`, {
     method: 'GET',
     headers: {
@@ -1161,7 +1258,22 @@ export const fetchAuthMethods = async (accessToken: string): Promise<{ email?: s
   return parsed;
 };
 
+const storeAuthTokens = (tokens: AuthTokens) => {
+  if (typeof window === 'undefined') return;
+  if (tokens.access_token) {
+    localStorage.setItem('auth_access_token', tokens.access_token);
+    localStorage.setItem('access_token', tokens.access_token);
+  }
+  if (tokens.refresh_token) {
+    localStorage.setItem('auth_refresh_token', tokens.refresh_token);
+    localStorage.setItem('ga_refresh_token', tokens.refresh_token);
+  }
+};
+
 export const fetchAuthProfile = async (accessToken: string): Promise<AuthUserProfile | null> => {
+  if (!AUTH_PROFILE_ENABLED) {
+    return null;
+  }
   const response = await authFetch(`/users/me`, {
     method: 'GET',
     headers: {
@@ -1171,6 +1283,21 @@ export const fetchAuthProfile = async (accessToken: string): Promise<AuthUserPro
   });
 
   if (!response.ok) {
+    if ([401, 403].includes(response.status) && typeof window !== 'undefined') {
+      const refreshToken =
+        localStorage.getItem('auth_refresh_token') || localStorage.getItem('ga_refresh_token');
+      if (refreshToken) {
+        try {
+          const tokens = await refreshAuthToken(refreshToken);
+          storeAuthTokens(tokens);
+          if (tokens.access_token) {
+            return fetchAuthProfile(tokens.access_token);
+          }
+        } catch {
+          // Если refresh не помог — отдаём null, чтобы UI показал логин.
+        }
+      }
+    }
     const cached = cacheGetWithMeta<AuthUserProfile>('auth_profile', CACHE_TTL.authProfile);
     if (cached.data && cached.meta?.token === accessToken) {
       return cached.data;

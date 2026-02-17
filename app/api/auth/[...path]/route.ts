@@ -4,9 +4,15 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const UPSTREAM_BASE_URLS = [
-  'https://api.bot.eutochkin.com/api',
-  'https://api.bot.eutochkin.com',
-  'https://auth.bot.eutochkin.com',
+  'https://cdn.opngtr.ru/api',
+  'https://opngtr.com/api',
+  'https://cdn.opngtr.ru',
+  'https://opngtr.com',
+  // 'https://auth.bot.lk.eutochkin.com',
+  // 'https://auth.bot.lk.eutochkin.com/api',
+  // 'https://api.bot.eutochkin.com/api',
+  // 'https://api.bot.eutochkin.com',
+  // 'https://auth.bot.eutochkin.com',
 ];
 
 // Hop-by-hop заголовки нельзя проксировать.
@@ -40,6 +46,26 @@ const buildUpstreamUrl = (baseUrl: string, req: NextRequest, pathParts: string[]
 const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
   const requestBody = req.method !== 'GET' && req.method !== 'HEAD' ? await req.text() : null;
   let lastError: Error | null = null;
+
+  let lastAuthResponse: { response: Response; baseUrl: string } | null = null;
+
+  const buildResponse = async (upstreamResponse: Response, baseUrl: string) => {
+    const responseHeaders = new Headers();
+    upstreamResponse.headers.forEach((value, key) => {
+      if (!hopByHopHeaders.has(key.toLowerCase())) {
+        responseHeaders.set(key, value);
+      }
+    });
+    responseHeaders.set('x-auth-upstream', baseUrl);
+
+    const body = await upstreamResponse.arrayBuffer();
+
+    return new Response(body, {
+      status: upstreamResponse.status,
+      statusText: upstreamResponse.statusText,
+      headers: responseHeaders,
+    });
+  };
 
   for (const baseUrl of UPSTREAM_BASE_URLS) {
     try {
@@ -75,7 +101,8 @@ const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
       const upstreamResponse = await fetch(url.toString(), init);
       if (!upstreamResponse.ok) {
         if ([401, 403].includes(upstreamResponse.status)) {
-          return upstreamResponse;
+          lastAuthResponse = { response: upstreamResponse, baseUrl };
+          continue;
         }
         const shouldTryNext = [404, 500, 502, 503, 504].includes(upstreamResponse.status);
         if (shouldTryNext) {
@@ -84,24 +111,14 @@ const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
         }
       }
 
-      const responseHeaders = new Headers();
-      upstreamResponse.headers.forEach((value, key) => {
-        if (!hopByHopHeaders.has(key.toLowerCase())) {
-          responseHeaders.set(key, value);
-        }
-      });
-      responseHeaders.set('x-auth-upstream', baseUrl);
-
-      const body = await upstreamResponse.arrayBuffer();
-
-      return new Response(body, {
-        status: upstreamResponse.status,
-        statusText: upstreamResponse.statusText,
-        headers: responseHeaders,
-      });
+      return buildResponse(upstreamResponse, baseUrl);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown proxy error');
     }
+  }
+
+  if (lastAuthResponse) {
+    return buildResponse(lastAuthResponse.response, lastAuthResponse.baseUrl);
   }
 
   const message = lastError?.message || 'Unknown proxy error';

@@ -43,6 +43,15 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
   const [authProfileId, setAuthProfileId] = useState<string | null>(null);
   const popupRef = useRef<Window | null>(null);
   const popupOrigin = AUTH_POPUP_ORIGIN;
+  const allowedOrigins = useMemo(
+    () =>
+      new Set([
+        popupOrigin,
+        'https://lka.bot.eutochkin.com',
+        'https://auth.bot.lk.eutochkin.com',
+      ]),
+    [popupOrigin]
+  );
 
   const getAuthToken = () => {
     if (typeof window === 'undefined') return null;
@@ -111,7 +120,7 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== popupOrigin) return;
+      if (!allowedOrigins.has(event.origin)) return;
       if (!event.data || typeof event.data !== 'object') return;
       const data = event.data as { type?: string };
 
@@ -174,7 +183,8 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
         return;
       }
 
-      if (data.type === 'email_linked') {
+      const type = (data.type || '').toString();
+      if (type === 'email_linked' || type === 'email_link_success' || type === 'link_email_success') {
         setToast(t('profile.email_linked_success'));
         refreshUser({ silent: true }).catch(() => {});
         loadAuthProfile().catch(() => {});

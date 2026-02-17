@@ -63,7 +63,7 @@ const LOCATION_LOCALIZED: Record<number, LocationLocales> = {
 
 export default function LocationsPage({ onBack }: LocationsPageProps) {
   const { user, isLoading, error, isAuthenticated } = useUser();
-  const { language, t } = useLanguage();
+  const { language, t, languageRefreshId } = useLanguage();
   const { formatCurrency, currency } = useCurrency();
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -78,7 +78,7 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
       }
       try {
         setIsLocationsLoading(true);
-        const data = await fetchAvailableLocations(user.id);
+        const data = await fetchAvailableLocations(user.id, language);
         if (mounted) {
           const filtered = Array.isArray(data) ? data.filter((loc) => !loc.hidden) : [];
           setLocations(filtered);
@@ -95,7 +95,7 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
     return () => {
       mounted = false;
     };
-  }, [user?.id]);
+  }, [user?.id, language, languageRefreshId]);
 
   const selectedIds = useMemo(
     () => locations.filter((loc) => loc.selected).map((loc) => loc.id),
@@ -145,6 +145,16 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
   const showDetails = !isLocationsLoading && locations.length > 0;
 
   const getLocationName = (loc: LocationItem) => {
+    const record = loc as Record<string, unknown>;
+    const apiLang = language === 'am' ? 'hy' : language;
+    const apiName =
+      (typeof record[`name_${apiLang}`] === 'string' && String(record[`name_${apiLang}`])) ||
+      (typeof record[`title_${apiLang}`] === 'string' && String(record[`title_${apiLang}`])) ||
+      (typeof record[`country_${apiLang}`] === 'string' && String(record[`country_${apiLang}`])) ||
+      (typeof record.name === 'string' && record.name) ||
+      (typeof record.title === 'string' && String(record.title)) ||
+      (typeof record.country === 'string' && String(record.country));
+    if (apiName) return apiName;
     const localized = LOCATION_LOCALIZED[loc.id]?.[language];
     const fallback =
       localized ||
@@ -155,6 +165,14 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
   };
 
   const getLocationDescription = (loc: LocationItem) => {
+    const record = loc as Record<string, unknown>;
+    const apiLang = language === 'am' ? 'hy' : language;
+    const apiDescription =
+      (typeof record[`description_${apiLang}`] === 'string' && String(record[`description_${apiLang}`])) ||
+      (typeof record[`city_${apiLang}`] === 'string' && String(record[`city_${apiLang}`])) ||
+      (typeof record.description === 'string' && record.description) ||
+      (typeof record.city === 'string' && String(record.city));
+    if (apiDescription) return apiDescription;
     const localized = LOCATION_LOCALIZED[loc.id]?.[language];
     const fallback =
       localized ||

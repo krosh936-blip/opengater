@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/contexts/ThemeContext'
@@ -18,8 +19,23 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const cookieStore = cookies()
+  const cookieList = typeof (cookieStore as { getAll?: () => Array<{ name: string; value: string }> }).getAll === 'function'
+    ? (cookieStore as { getAll: () => Array<{ name: string; value: string }> }).getAll()
+    : []
+  const savedLanguage =
+    cookieList.find((item) => item.name === 'user_language')?.value ||
+    (typeof (cookieStore as { get?: (name: string) => { value?: string } | undefined }).get === 'function'
+      ? (cookieStore as { get: (name: string) => { value?: string } | undefined }).get('user_language')?.value
+      : undefined)
+  const initialLanguage =
+    savedLanguage === 'ru' || savedLanguage === 'en' || savedLanguage === 'am' || savedLanguage === 'hy'
+      ? savedLanguage === 'hy'
+        ? 'am'
+        : savedLanguage
+      : 'ru'
   return (
-    <html lang="ru" suppressHydrationWarning>
+    <html lang={initialLanguage} suppressHydrationWarning>
       <head>
         {/* Инлайн-скрипт, который выполнится ДО загрузки React */}
         <script
@@ -52,7 +68,7 @@ export default function RootLayout({
       <body className={`${inter.className}`}>
         <div className="background" aria-hidden="true"></div>
         <ThemeProvider>
-          <LanguageProvider>
+          <LanguageProvider initialLanguage={initialLanguage}>
             <UserProvider>
               {/* Оборачиваем в UserProvider */}
               <CurrencyProvider>

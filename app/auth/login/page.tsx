@@ -378,7 +378,7 @@ export default function LoginPage() {
       }
     };
 
-    const handleTokensFromHash = async (hash: string) => {
+  const handleTokensFromHash = async (hash: string) => {
       const params = new URLSearchParams(hash.replace(/^#/, ''));
       const accessToken = params.get('access_token') || '';
       if (!accessToken) return;
@@ -388,10 +388,16 @@ export default function LoginPage() {
         { access_token: accessToken, refresh_token: refreshToken, token_type: tokenType },
         'telegram'
       );
-    };
+  };
+
+    const allowedOrigins = new Set([
+      AUTH_POPUP_ORIGIN,
+      'https://lka.bot.eutochkin.com',
+      'https://auth.bot.lk.eutochkin.com',
+    ]);
 
     const onMessage = (event: MessageEvent) => {
-      if (event.origin !== AUTH_POPUP_ORIGIN) return;
+      if (!allowedOrigins.has(event.origin)) return;
       if (!event.data || typeof event.data !== 'object') return;
       const data = event.data as Partial<AuthTokens & { type?: string }>;
       if (data.type === 'auth_success' && data.access_token) {

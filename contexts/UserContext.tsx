@@ -47,6 +47,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       setUser(userData);
       setIsAuthenticated(true);
       setError(null);
+      if (typeof window !== 'undefined' && userData?.id) {
+        localStorage.setItem('user_id', String(userData.id));
+      }
       // Синхронизируем язык UI с настройкой пользователя (если есть).
       if (userData?.language) {
         const raw = userData.language.toLowerCase();
@@ -54,11 +57,22 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           ? 'ru'
           : raw.includes('en') || raw.includes('eng')
           ? 'en'
-          : raw.includes('am') || raw.includes('arm') || raw.includes('հայ')
+          : raw.includes('am') || raw.includes('arm') || raw.includes('հայ') || raw.includes('hy')
           ? 'am'
           : null;
-        if (nextLang) {
+        const pendingLang =
+          typeof window !== 'undefined' ? localStorage.getItem('user_language_pending') : null;
+        const pendingTsRaw =
+          typeof window !== 'undefined' ? localStorage.getItem('user_language_pending_ts') : null;
+        const pendingTs = pendingTsRaw ? Number(pendingTsRaw) : 0;
+        const isPendingFresh =
+          !!pendingLang && !!pendingTs && Date.now() - pendingTs < 60 * 1000;
+        if (nextLang && !(isPendingFresh && pendingLang !== nextLang)) {
           setLanguage(nextLang);
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('user_language_pending');
+            localStorage.removeItem('user_language_pending_ts');
+          }
         }
       }
     } catch (err) {
