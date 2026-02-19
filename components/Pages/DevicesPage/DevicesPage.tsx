@@ -23,18 +23,23 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
   const [actionsVisible, setActionsVisible] = useState(false);
 
   const baseCurrency = user?.currency || null;
-  const usdCurrency = useMemo(
-    () => currencies.find((item) => item.code === 'USD') || (baseCurrency?.code === 'USD' ? baseCurrency : null),
-    [currencies, baseCurrency]
-  );
-  const formatTariff = (value: number, deviceNumber?: number | null) => {
+  const tariffCurrency = useMemo(() => {
+    const rub = currencies.find((item) => item.code === 'RUB');
+    if (rub) return rub;
+    return {
+      code: 'RUB',
+      symbol: '₽',
+      rate: 1,
+      rounding_precision: 0,
+      id: 1,
+      hidden: false,
+    } as const;
+  }, [currencies]);
+  const formatTariff = (value: number) => {
     const amount = Number(value) || 0;
-    if (!amount) return formatMoneyFrom(0, baseCurrency);
-    if (baseCurrency?.code === 'USD') return formatMoneyFrom(amount, baseCurrency);
-    if (usdCurrency && (amount <= 20 || (deviceNumber && Math.round(amount) === deviceNumber))) {
-      return formatMoneyFrom(amount, usdCurrency);
-    }
-    return formatMoneyFrom(amount, baseCurrency);
+    if (!amount) return formatMoneyFrom(0, tariffCurrency);
+    // Тарифы приходят в RUB без указания валюты — переводим в выбранную валюту.
+    return formatMoneyFrom(amount, tariffCurrency);
   };
   const parsePriceValue = (value: unknown): number | null => {
     if (typeof value === 'number' && Number.isFinite(value)) {
@@ -72,14 +77,16 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
     }
     if (data && typeof data === 'object') {
       const record = data as Record<string, unknown>;
-      const monthly =
+      const monthlyRaw =
         parsePriceValue(record.tariff_per_month) ??
         parsePriceValue(record.tariff) ??
         parsePriceValue(record.price) ??
         parsePriceValue(record.monthly) ??
         parsePriceValue(record.monthly_price) ??
         parsePriceValue(record.amount);
-      const daily = parsePriceValue(record.tariff_per_day) ?? 0;
+      const dailyRaw = parsePriceValue(record.tariff_per_day);
+      const monthly = monthlyRaw ?? (dailyRaw != null ? dailyRaw * 30 : null);
+      const daily = dailyRaw ?? 0;
       if (monthly == null) {
         return null;
       }
