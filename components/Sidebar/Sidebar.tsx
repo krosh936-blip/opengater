@@ -14,6 +14,8 @@ import InvitePage from '../Pages/InvitePage/InvitePage';
 import HelpPage from '../Pages/HelpPage/HelpPage';
 import InstallPage from '../Pages/InstallPage/InstallPage';
 import ProfilePage from '../Pages/ProfilePage/ProfilePage';
+import PaymentPage from '../Pages/PaymentPage/PaymentPage';
+import HistoryPage from '../Pages/HistoryPage/HistoryPage';
 // Р”СЂСѓРіРёРµ СЃС‚СЂР°РЅРёС†С‹ РёРјРїРѕСЂС‚РёСЂСѓР№С‚Рµ РїРѕ РјРµСЂРµ СЃРѕР·РґР°РЅРёСЏ
 
 // РўРёРїС‹ РґР»СЏ РЅР°РІРёРіР°С†РёРѕРЅРЅС‹С… СЌР»РµРјРµРЅС‚РѕРІ
@@ -32,9 +34,9 @@ export type SidebarSectionType = {
 };
 
 // РўРёРїС‹ РґР»СЏ СЃС‚СЂР°РЅРёС†
-type PageType = 'home' | 'subscription' | 'invite' | 'raffle' | 'locations' | 'devices' | 'help' | 'install' | 'profile';
+type PageType = 'home' | 'subscription' | 'invite' | 'raffle' | 'locations' | 'devices' | 'help' | 'install' | 'profile' | 'payment' | 'history';
 const ACTIVE_PAGE_STORAGE_KEY = 'opengater_active_page';
-const pageTypes: PageType[] = ['home', 'subscription', 'invite', 'raffle', 'locations', 'devices', 'help', 'install', 'profile'];
+const pageTypes: PageType[] = ['home', 'subscription', 'invite', 'raffle', 'locations', 'devices', 'help', 'install', 'profile', 'payment', 'history'];
 
 const isPageType = (value: string): value is PageType => pageTypes.includes(value as PageType);
 
@@ -69,6 +71,39 @@ const Sidebar: React.FC = () => {
       window.removeEventListener('app:navigate', handleNavigate as EventListener);
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const baseTitle = t('app.title_base');
+    const pageTitles: Record<PageType, string> = {
+      home: t('app.title_cabinet'),
+      subscription: t('nav.subscription'),
+      invite: t('nav.invite'),
+      raffle: t('nav.raffle'),
+      locations: t('nav.locations'),
+      devices: t('nav.devices'),
+      help: t('nav.help'),
+      install: t('nav.install'),
+      profile: t('profile.profile_page_title'),
+      payment: t('payment.title'),
+      history: t('nav.history'),
+    };
+    const pageTitle = pageTitles[activeItem] || baseTitle;
+    document.title = `${baseTitle} - ${pageTitle}`;
+
+    const iconHref = '/logo.png';
+    const ensureIcon = (rel: string) => {
+      let link = document.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement | null;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = rel;
+        document.head.appendChild(link);
+      }
+      link.href = iconHref;
+    };
+    ensureIcon('icon');
+    ensureIcon('shortcut icon');
+  }, [activeItem, t]);
   
   // Р¤СѓРЅРєС†РёСЏ СЂРµРЅРґРµСЂР° Р°РєС‚РёРІРЅРѕР№ СЃС‚СЂР°РЅРёС†С‹
   const renderActivePage = () => {
@@ -91,6 +126,10 @@ const Sidebar: React.FC = () => {
         return <InstallPage onBack={() => handleNavClick('home')} />;
       case 'profile':
         return <ProfilePage onBack={() => handleNavClick('home')} />;
+      case 'payment':
+        return <PaymentPage onBack={() => handleNavClick('home')} />;
+      case 'history':
+        return <HistoryPage />;
       default:
         return <HomePage />; // РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РїРѕРєР°Р·С‹РІР°РµРј HomePage
     }
@@ -262,3 +301,5 @@ const Sidebar: React.FC = () => {
 };
 
 export default Sidebar;
+
+

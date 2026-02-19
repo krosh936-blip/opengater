@@ -120,6 +120,10 @@
   background: linear-gradient(135deg, #8b5cf6, #7c3aed);
 }
 
+.card-icon.fragment {
+  background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+}
+
 .card-icon svg {
   width: 24px;
   height: 24px;

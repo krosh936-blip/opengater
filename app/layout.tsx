@@ -10,16 +10,21 @@ import { CurrencyProvider } from '@/contexts/CurrencyContext'
 const inter = Inter({ subsets: ['latin', 'cyrillic'] })
 
 export const metadata: Metadata = {
-  title: 'Opengater',
+  title: 'Opengater - личный кабинет',
   description: 'Your website description',
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const cookieList = typeof (cookieStore as { getAll?: () => Array<{ name: string; value: string }> }).getAll === 'function'
     ? (cookieStore as { getAll: () => Array<{ name: string; value: string }> }).getAll()
     : []

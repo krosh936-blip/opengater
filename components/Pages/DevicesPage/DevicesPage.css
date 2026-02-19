@@ -92,85 +92,60 @@
 }
 
 .devices-page .current-status {
-  background: rgba(20, 20, 22, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 24px;
-  padding: 24px;
+  background: rgba(20, 20, 22, 0.5);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   margin-bottom: 24px;
   animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 [data-theme="light"] .devices-page .current-status,
 .light-theme .devices-page .current-status {
-  background: var(--bg-secondary);
+  background: #ffffff;
   backdrop-filter: none;
-}
-
-.devices-page .status-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.devices-page .status-icon {
-  width: 36px;
-  height: 36px;
-  background: rgba(42, 42, 45, 0.5);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-[data-theme="light"] .devices-page .status-icon,
-.light-theme .devices-page .status-icon {
-  background: var(--bg-primary);
-  backdrop-filter: none;
-}
-
-.devices-page .status-icon svg {
-  width: 18px;
-  height: 18px;
-  color: var(--text-primary);
+  border: 1px solid var(--border);
 }
 
 .devices-page .status-label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
 }
 
 .devices-page .status-content {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
 }
 
 .devices-page .status-devices {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 600;
   letter-spacing: -0.5px;
   animation: fadeIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .devices-page .status-price {
-  text-align: right;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   animation: fadeIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .devices-page .price-value {
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   color: var(--primary);
   letter-spacing: -0.3px;
 }
 
 .devices-page .price-period {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-tertiary);
 }
 
@@ -183,20 +158,26 @@
 }
 
 .devices-page .plan-card {
-  background: rgba(20, 20, 22, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 20px;
-  padding: 18px;
+  background: rgba(20, 20, 22, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+  padding: 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
   position: relative;
+  min-height: 108px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid transparent;
 }
 
 [data-theme="light"] .devices-page .plan-card,
 .light-theme .devices-page .plan-card {
-  background: var(--bg-secondary);
+  background: #ffffff;
   backdrop-filter: none;
+  border: 1px solid var(--border);
 }
 
 .devices-page .plan-card:active {
@@ -204,78 +185,46 @@
 }
 
 .devices-page .plan-card.selected {
-  background: rgba(0, 122, 255, 0.15);
-  border: 1px solid rgba(0, 122, 255, 0.3);
+  background: rgba(0, 122, 255, 0.08);
+  border-color: rgba(0, 122, 255, 0.45);
 }
 
 [data-theme="light"] .devices-page .plan-card.selected,
 .light-theme .devices-page .plan-card.selected {
-  background: rgba(0, 122, 255, 0.08);
-  border: 1px solid rgba(0, 122, 255, 0.3);
+  background: rgba(0, 122, 255, 0.06);
+  border-color: rgba(0, 122, 255, 0.45);
 }
 
 .devices-page .plan-card.popular {
-  border: 1px solid rgba(0, 122, 255, 0.2);
+  border-color: rgba(0, 122, 255, 0.3);
 }
 
 .devices-page .plan-badge {
   position: absolute;
-  top: -8px;
-  right: 12px;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
   background: var(--primary);
   color: white;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 8px;
-  letter-spacing: 0.3px;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
+  box-shadow: 0 6px 16px rgba(0, 122, 255, 0.2);
 }
 
-.devices-page .plan-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.devices-page .plan-header {
-  margin-bottom: 12px;
-}
-
-.devices-page .plan-icon {
-  width: 40px;
-  height: 40px;
-  background: rgba(42, 42, 45, 0.5);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 10px;
-}
-
-[data-theme="light"] .devices-page .plan-icon,
-.light-theme .devices-page .plan-icon {
-  background: var(--bg-primary);
-  backdrop-filter: none;
-}
-
-.devices-page .plan-icon svg {
-  width: 20px;
-  height: 20px;
-  color: var(--text-primary);
-}
-
-.devices-page .plan-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 4px;
+.devices-page .plan-number {
+  font-size: 22px;
+  font-weight: 700;
   letter-spacing: -0.3px;
 }
 
-.devices-page .plan-devices {
-  font-size: 13px;
+.devices-page .plan-name {
+  font-size: 12px;
   color: var(--text-secondary);
+  text-transform: lowercase;
 }
 
 .devices-page .plan-footer {
@@ -283,16 +232,17 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .devices-page .plan-price {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
 }
 
 .devices-page .plan-savings {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--success);
   font-weight: 500;
 }
@@ -649,16 +599,16 @@ body:not(.theme-transition) .devices-page .bottom-actions {
   }
 
   .devices-page .plans-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
   }
 
   .devices-page .plan-card {
-    padding: 22px;
+    padding: 18px;
   }
 
   .devices-page .current-status {
-    padding: 28px;
+    padding: 20px 24px;
   }
 
   .devices-page .custom-input {

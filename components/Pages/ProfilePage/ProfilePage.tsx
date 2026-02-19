@@ -32,6 +32,18 @@ const formatTelegramDisplay = (value: string): string => {
   return trimmed;
 };
 
+const isValidEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
+const normalizeTelegramHandle = (value?: string | null): string => {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const normalized = trimmed.replace(/^@/, '');
+  if (!normalized || /^\d+$/.test(normalized)) return '';
+  const handleLike = /^(?=.*[a-zA-Z_])[a-zA-Z0-9_]{3,}$/.test(normalized);
+  return handleLike ? `@${normalized}` : '';
+};
+
 export default function ProfilePage({ onBack }: ProfilePageProps) {
   const { user, isLoading, error, isAuthenticated, refreshUser } = useUser();
   const { t, language } = useLanguage();
@@ -96,6 +108,26 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
     return profile;
   };
 
+  const applyStoredAuthFallback = () => {
+    if (typeof window === 'undefined') return;
+    const storedEmail = localStorage.getItem('ga_user_email') || '';
+    const storedLabel = localStorage.getItem('auth_user_label') || '';
+    const emailCandidate = isValidEmail(storedEmail)
+      ? storedEmail
+      : isValidEmail(storedLabel)
+        ? storedLabel
+        : '';
+    if (emailCandidate && !linkedEmail) {
+      setLinkedEmail(emailCandidate);
+    }
+    const tgCandidate =
+      normalizeTelegramHandle(storedLabel) || normalizeTelegramHandle(storedEmail);
+    if (tgCandidate && !linkedTelegram) {
+      setLinkedTelegram(tgCandidate);
+      setTelegramLinked(true);
+    }
+  };
+
   const loadAuthProfile = async () => {
     if (typeof window === 'undefined') return;
     const token = getAuthToken();
@@ -106,7 +138,10 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
       setAuthProfileId(null);
       return;
     }
-    await syncAuthProfile(token);
+    const profile = await syncAuthProfile(token);
+    if (!profile) {
+      applyStoredAuthFallback();
+    }
   };
 
   useEffect(() => {
@@ -326,7 +361,11 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
               {displayUsername}
             </div>
             <div className={`profile-page-sub ${subscriptionActive ? '' : 'expired'}`}>
-              <span className="profile-status-dot" />
+              <span className="profile-status-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </span>
               <span>{subscriptionActive ? t('profile.subscription_active') : t('profile.subscription_expired')}</span>
             </div>
           </div>

@@ -9,7 +9,7 @@ interface SubscriptionLink {
   id: string;
   title: string;
   description: string;
-  icon: 'global' | 'mirror' | 'vless';
+  icon: 'global' | 'mirror' | 'vless' | 'fragment';
   value: string;
   type: 'url' | 'key';
 }
@@ -19,6 +19,12 @@ interface AppInfo {
   name: string;
   icon: string;
 }
+
+const APP_DEEP_LINK_PREFIXES: Record<string, string> = {
+  happ: 'happ://add/',
+  karing: 'karing://install-config?url=',
+  v2raytun: 'v2raytun://import/',
+};
 
 export default function SubscriptionPage() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -45,6 +51,12 @@ export default function SubscriptionPage() {
     setToast(message);
   };
 
+  const buildFragmentLink = (value?: string | null) => {
+    if (!value || value === t('common.unavailable')) return t('common.unavailable');
+    if (value.endsWith('/f')) return value;
+    return `${value.replace(/\/+$/, '')}/f`;
+  };
+
   // Загрузка данных из API пользователя
   useEffect(() => {
     if (user && user.account) {
@@ -55,6 +67,14 @@ export default function SubscriptionPage() {
           description: t('subscription.global_desc'),
           icon: 'global',
           value: user.account.global_subscription_url || t('common.unavailable'),
+          type: 'url'
+        },
+        {
+          id: 'fragment-url',
+          title: t('subscription.fragment_title'),
+          description: t('subscription.fragment_desc'),
+          icon: 'fragment',
+          value: buildFragmentLink(user.account.global_subscription_url),
           type: 'url'
         },
         {
@@ -127,14 +147,22 @@ export default function SubscriptionPage() {
 
   const handleAddToApp = (appId: string, linkId: string) => {
     const link = subscriptionLinks.find(l => l.id === linkId);
-    if (!link || !link.value || link.value === t('common.unavailable')) return;
-    
-    console.log(`Добавляем ${link.value} в приложение ${appId}`);
+    if (!link || link.type !== 'url' || !link.value || link.value === t('common.unavailable')) return;
+    const prefix = APP_DEEP_LINK_PREFIXES[appId];
+    if (!prefix) {
+      showToast(t('common.unavailable'));
+      return;
+    }
+    const deepLink = appId === 'karing'
+      ? `${prefix}${encodeURIComponent(link.value)}`
+      : `${prefix}${link.value}`;
+
+    window.location.href = deepLink;
     closeAllDropdowns();
   };
 
   // Иконки для разных типов
-  const renderIcon = (iconType: 'global' | 'mirror' | 'vless') => {
+  const renderIcon = (iconType: 'global' | 'mirror' | 'vless' | 'fragment') => {
     switch (iconType) {
       case 'global':
         return (
@@ -154,6 +182,15 @@ export default function SubscriptionPage() {
         return (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+          </svg>
+        );
+      case 'fragment':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M16 3h5v5"></path>
+            <path d="M8 3H3v5"></path>
+            <path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"></path>
+            <path d="m15 9 6-6"></path>
           </svg>
         );
     }
@@ -261,28 +298,32 @@ export default function SubscriptionPage() {
             className={`action-dropdown ${activeDropdown === link.id && link.value && link.value !== t('common.unavailable') ? 'active' : ''}`}
             id={`dropdown-${link.id}`}
           >
-            <div
-              className={`dropdown-item has-submenu ${expandedSubmenu === link.id ? 'expanded' : ''}`}
-              onClick={() => toggleSubmenu(link.id)}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 5v14M5 12h14"></path>
-              </svg>
-              <span>{t('subscription.add_to')}</span>
-            </div>
-            <div className="dropdown-submenu">
-              {apps.map(app => (
-                <div 
-                  key={`${link.id}-${app.id}`}
-                  className="submenu-item"
-                  onClick={() => handleAddToApp(app.id, link.id)}
+            {link.type === 'url' && (
+              <>
+                <div
+                  className={`dropdown-item has-submenu ${expandedSubmenu === link.id ? 'expanded' : ''}`}
+                  onClick={() => toggleSubmenu(link.id)}
                 >
-                  <img src={app.icon} alt={app.name} />
-                  <span>{app.name}</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 5v14M5 12h14"></path>
+                  </svg>
+                  <span>{t('subscription.add_to')}</span>
                 </div>
-              ))}
-            </div>
-            <div className="dropdown-divider"></div>
+                <div className="dropdown-submenu">
+                  {apps.map(app => (
+                    <div 
+                      key={`${link.id}-${app.id}`}
+                      className="submenu-item"
+                      onClick={() => handleAddToApp(app.id, link.id)}
+                    >
+                      <img src={app.icon} alt={app.name} />
+                      <span>{app.name}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="dropdown-divider"></div>
+              </>
+            )}
             <div 
               className="dropdown-item" 
               onClick={() => {

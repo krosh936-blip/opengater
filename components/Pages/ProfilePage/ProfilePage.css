@@ -147,12 +147,18 @@
   color: #ff3b30;
 }
 
-.profile-page .profile-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  display: inline-block;
+.profile-page .profile-status-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-page .profile-status-icon svg {
+  width: 14px;
+  height: 14px;
 }
 
 .profile-page .profile-page-meta {
@@ -161,7 +167,7 @@
   justify-content: space-between;
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 [data-theme="light"] .profile-page .profile-page-meta,
@@ -233,7 +239,7 @@
 }
 
 .profile-page .auth-method-row + .auth-method-row {
-  border-top: 1px solid rgba(15, 23, 42, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 [data-theme="light"] .profile-page .auth-method-row + .auth-method-row,
@@ -307,8 +313,8 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
-  background: rgba(0, 0, 0, 0.04);
-  color: #8a8a9b;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
   border: 1px solid transparent;
   cursor: pointer;
   flex-shrink: 0;
@@ -318,8 +324,8 @@
 }
 
 .profile-page .auth-method-action:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
 }
 
 [data-theme="light"] .profile-page .auth-method-action,

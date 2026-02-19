@@ -7,14 +7,16 @@ import { useCurrency } from '@/contexts/CurrencyContext';
 import { fetchAvailableLocations, LocationItem } from '@/lib/api'; // Добавляем импорт
 
 type HomePageProps = {
-  onNavigate?: (page: 'home' | 'subscription' | 'invite' | 'raffle' | 'locations' | 'devices' | 'help' | 'install') => void;
+  onNavigate?: (page: 'home' | 'subscription' | 'invite' | 'raffle' | 'locations' | 'devices' | 'help' | 'install' | 'payment' | 'history') => void;
 };
 
 export default function HomePage({ onNavigate }: HomePageProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [slideDirection, setSlideDirection] = useState<'forward' | 'backward'>('forward');
   const sliderRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const autoplayRef = useRef<NodeJS.Timeout>();
+  const prevSlideRef = useRef(0);
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const { currency, formatNumber, formatCurrency } = useCurrency();
 
@@ -93,6 +95,17 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     }
   }, [currentSlide, promoSlides.length]);
 
+  useEffect(() => {
+    const total = promoSlides.length;
+    if (total < 2) return;
+    const prev = prevSlideRef.current;
+    if (prev === currentSlide) return;
+    const forward = (prev + 1) % total === currentSlide;
+    const backward = (prev - 1 + total) % total === currentSlide;
+    setSlideDirection(forward ? 'forward' : backward ? 'backward' : currentSlide > prev ? 'forward' : 'backward');
+    prevSlideRef.current = currentSlide;
+  }, [currentSlide, promoSlides.length]);
+
   // Автопрокрутка слайдера
   useEffect(() => {
     startAutoplay();
@@ -124,6 +137,14 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     console.log('Клик по пополнению');
   };
 
+  const handleRaffle = () => {
+    if (onNavigate) {
+      onNavigate('raffle');
+      return;
+    }
+    console.log('Клик по розыгрышу');
+  };
+
   const handleInvite = () => {
     console.log('Пригласить друзей');
     if (onNavigate) {
@@ -136,7 +157,13 @@ export default function HomePage({ onNavigate }: HomePageProps) {
   };
 
   const handleHistory = () => {
-    console.log('История операций');
+    if (onNavigate) {
+      onNavigate('history');
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      window.location.assign('/user/payments-history');
+    }
   };
 
   const handleMore = () => {
@@ -168,7 +195,12 @@ export default function HomePage({ onNavigate }: HomePageProps) {
   };
 
   const handleDepositClick = () => {
-    console.log('Пополнить баланс');
+    if (onNavigate) {
+      onNavigate('payment');
+      return;
+    }
+    if (typeof window === 'undefined') return;
+    window.location.assign('/user/payment');
   };
 
   useEffect(() => {
@@ -205,13 +237,24 @@ export default function HomePage({ onNavigate }: HomePageProps) {
   
   const daysRemainingText = (() => {
     if (!user?.expire) return '';
-    const expire = new Date(user.expire);
-    const now = new Date();
-    const diffTime = expire.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) return t('days.expired');
-    if (diffDays === 0) return t('days.expires_today');
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const dateOnlyMatch = user.expire.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const expireMs = dateOnlyMatch
+      ? Date.UTC(
+          Number(dateOnlyMatch[1]),
+          Number(dateOnlyMatch[2]) - 1,
+          Number(dateOnlyMatch[3]),
+          20,
+          59,
+          59,
+          999
+        )
+      : new Date(user.expire).getTime();
+    if (!Number.isFinite(expireMs)) return '';
+    const diffTime = expireMs - Date.now();
+    if (diffTime < 0) return t('days.expired');
+    if (diffTime < msPerDay) return t('days.expires_today');
+    const diffDays = Math.ceil(diffTime / msPerDay);
 
     if (language === 'ru') {
       const last = diffDays % 10;
@@ -342,10 +385,12 @@ export default function HomePage({ onNavigate }: HomePageProps) {
               >
                 {currency.code}
               </span>
+              {daysRemainingText ? (
+                <span id="days-remaining" className="days-remaining-text visible">{daysRemainingText}</span>
+              ) : null}
             </div>
             <button className="deposit-button" onClick={handleDepositClick}>{t('balance.deposit')}</button>
           </div>
-          <div id="days-remaining" className="days-remaining-text visible">{daysRemainingText}</div>
         </div>
         
         <div className="balance-divider"></div>
@@ -401,13 +446,13 @@ export default function HomePage({ onNavigate }: HomePageProps) {
           ref={trackRef}
           style={{
             transform: `translateX(-${currentSlide * 100}%)`,
-            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            transition: 'transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)'
           }}
         >
-          {promoSlides.map((slide) => (
+          {promoSlides.map((slide, index) => (
             <div
               key={slide.id}
-              className="promo-slide"
+              className={`promo-slide ${currentSlide === index ? 'active' : ''}`}
               style={{ background: slide.background }}
               onClick={slide.onClick}
             >
@@ -421,6 +466,16 @@ export default function HomePage({ onNavigate }: HomePageProps) {
           ))}
         </div>
         <div className="promo-slider-dots" id="promo-slider-dots">
+          <span
+            className="promo-slider-indicator"
+            aria-hidden="true"
+            style={{ transform: `translateX(${currentSlide * 12}px)` }}
+          >
+            <span
+              key={`${currentSlide}-${slideDirection}`}
+              className={`promo-slider-indicator-dot direction-${slideDirection}`}
+            />
+          </span>
           {promoSlides.map((_, index) => (
             <div 
               key={index}

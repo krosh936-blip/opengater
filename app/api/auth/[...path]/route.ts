@@ -4,6 +4,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const UPSTREAM_BASE_URLS = [
+  'https://reauth.cloud/api',
+  'https://reauth.cloud',
   'https://cdn.opngtr.ru/api',
   'https://opngtr.com/api',
   'https://cdn.opngtr.ru',
@@ -27,6 +29,8 @@ const hopByHopHeaders = new Set([
   'upgrade',
   'host',
   'content-length',
+  // Тело от fetch уже распаковано, поэтому content-encoding нужно убрать.
+  'content-encoding',
 ]);
 
 const buildUpstreamUrl = (baseUrl: string, req: NextRequest, pathParts: string[] = []) => {

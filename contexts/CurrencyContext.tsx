@@ -151,6 +151,8 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
 
   const setCurrencyCode = async (code: string) => {
     if (code === selectedCode) return;
+    const nextCurrency = findCurrency(currencies, code);
+    const nextCurrencyId = nextCurrency?.id ?? null;
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_KEY, code);
       localStorage.setItem(PENDING_KEY, code);
@@ -169,7 +171,7 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
     let shouldReload = false;
     try {
       // Сохраняем выбор на бэкенде, чтобы все эндпоинты вернули значения в новой валюте.
-      await setUserCurrency(user.id, code);
+      await setUserCurrency(user.id, code, nextCurrencyId);
       shouldReload = true;
     } catch {
       // keep local selection even if API update fails

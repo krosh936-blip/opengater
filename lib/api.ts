@@ -1,14 +1,19 @@
 import { AUTH_PROFILE_ENABLED } from '@/lib/appConfig';
 
-﻿const API_BASE_URL = 'https://api.bot.eutochkin.com/api';
+const API_BASE_URL = 'https://api.bot.eutochkin.com/api';
 
 
 const API_PROXY_BASE_URL = '/api/proxy';
-const AUTH_BACKEND_DIRECT_URL = 'https://cdn.opngtr.ru/api';
-const AUTH_BACKEND_ALT_URL = 'https://opngtr.com/api';
-const AUTH_BACKEND_FALLBACK_URL = 'https://cdn.opngtr.ru';
-const AUTH_BACKEND_NEW_URL = 'https://opngtr.com';
-const AUTH_BACKEND_NEW_API_URL = 'https://cdn.opngtr.ru/api';
+const AUTH_BACKEND_DIRECT_URL = 'https://reauth.cloud/api';
+const AUTH_BACKEND_ALT_URL = 'https://reauth.cloud';
+const AUTH_BACKEND_FALLBACK_URL = 'https://cdn.opngtr.ru/api';
+const AUTH_BACKEND_NEW_URL = 'https://opngtr.com/api';
+const AUTH_BACKEND_NEW_API_URL = 'https://cdn.opngtr.ru';
+// const AUTH_BACKEND_DIRECT_URL = 'https://cdn.opngtr.ru/api';
+// const AUTH_BACKEND_ALT_URL = 'https://opngtr.com/api';
+// const AUTH_BACKEND_FALLBACK_URL = 'https://cdn.opngtr.ru';
+// const AUTH_BACKEND_NEW_URL = 'https://opngtr.com';
+// const AUTH_BACKEND_NEW_API_URL = 'https://cdn.opngtr.ru/api';
 // const AUTH_BACKEND_DIRECT_URL = 'https://api.bot.eutochkin.com/api';
 // const AUTH_BACKEND_ALT_URL = 'https://api.bot.eutochkin.com';
 // const AUTH_BACKEND_FALLBACK_URL = 'https://auth.bot.eutochkin.com';
@@ -30,6 +35,7 @@ const CACHE_TTL = {
   currencies: 12 * 60 * 60 * 1000,
   user: 5 * 60 * 1000,
   authProfile: 10 * 60 * 1000,
+  locations: 60 * 1000,
 };
 
 const cacheSet = (key: string, data: unknown, meta?: Record<string, unknown>) => {
@@ -74,6 +80,11 @@ const cacheGetWithMeta = <T>(key: string, maxAgeMs?: number): { data: T | null; 
     return { data: null, meta: {} };
   }
 };
+
+const locationsInFlight = new Map<string, Promise<LocationItem[]>>();
+const locationsCooldownUntil = new Map<string, number>();
+const getLocationsCacheKey = (userId: number, language?: string | null) =>
+  `locations:${userId}:${language || 'default'}`;
 
 const authFetch = async (path: string, init: RequestInit): Promise<Response> => {
   let lastError: Error | null = null;
@@ -215,11 +226,23 @@ export interface DeviceTariff {
 
 export type DeviceTariffResponse = DeviceTariff | number;
 
+export interface PaymentHistoryItem {
+  id?: string | number;
+  title?: string;
+  subtitle?: string;
+  amount?: number;
+  currency?: string;
+  created_at?: string;
+  direction?: 'in' | 'out';
+  [key: string]: unknown;
+}
+
 export interface ReferredUser {
   full_name?: string;
   username?: string;
   connected?: boolean;
   amount?: number;
+  [key: string]: unknown;
 }
 
 export interface TelegramAuthPayload {
@@ -498,70 +521,153 @@ export const fetchLanguages = async (): Promise<LanguageOption[]> => {
   throw new Error('Не удалось загрузить список языков');
 };
 
+export const fetchPaymentBonus = async (
+  amount: number,
+  currencyCode: string,
+  signal?: AbortSignal
+): Promise<number> => {
+  const normalizedAmount = Number(amount);
+  if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+    return 0;
+  }
+  const code = currencyCode || 'RUB';
+  const url = `${API_PROXY_BASE_URL}/public/payments/bonus?amount=${encodeURIComponent(
+    normalizedAmount
+  )}&currency_code=${encodeURIComponent(code)}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+    },
+    credentials: 'include',
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ошибка сервера: ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (typeof data === 'number' && Number.isFinite(data)) {
+    return data;
+  }
+  if (data && typeof data === 'object') {
+    const record = data as Record<string, unknown>;
+    const value = record.bonus ?? record.value ?? record.amount ?? record.result;
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return 0;
+};
+
 // Функция для получения дней оставшихся
 export const calculateDaysRemaining = (expireDate: string): string => {
-  const expire = new Date(expireDate);
-  const now = new Date();
-  const diffTime = expire.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  if (diffDays < 0) return 'Истекла';
-  if (diffDays === 0) return 'Сегодня истекает';
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const dateOnlyMatch = expireDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const expireMs = dateOnlyMatch
+    ? Date.UTC(
+        Number(dateOnlyMatch[1]),
+        Number(dateOnlyMatch[2]) - 1,
+        Number(dateOnlyMatch[3]),
+        20,
+        59,
+        59,
+        999
+      )
+    : new Date(expireDate).getTime();
+  if (!Number.isFinite(expireMs)) return '';
+
+  const diffTime = expireMs - Date.now();
+  if (diffTime < 0) return 'Истекла';
+  if (diffTime < msPerDay) return 'Сегодня истекает';
+  const diffDays = Math.ceil(diffTime / msPerDay);
   return `≈ ${diffDays} дней`;
 };
 
 
 export const fetchAvailableLocations = async (userId: number, language?: string): Promise<LocationItem[]> => {
-  const token = getUserToken();
   const apiLanguage = language === 'am' ? 'hy' : language;
-  const headers = {
-    ...buildJsonHeaders(token),
-    ...(apiLanguage ? { 'Accept-Language': apiLanguage } : {}),
-  };
-  const languageQuery = apiLanguage ? `language_code=${encodeURIComponent(apiLanguage)}` : '';
-  const withLanguage = (url: string) => {
-    if (!languageQuery) return url;
-    return url.includes('?') ? `${url}&${languageQuery}` : `${url}?${languageQuery}`;
-  };
-  const attempts: Array<{ url: string; init: RequestInit }> = [];
+  const cacheKey = getLocationsCacheKey(userId, apiLanguage);
+  const cached = cacheGet<LocationItem[]>(cacheKey, CACHE_TTL.locations);
+  if (cached) return cached;
 
-  attempts.push({
-    url: withLanguage(`${API_PROXY_BASE_URL}/user/locations/available`),
-    init: { method: 'GET', headers, credentials: 'include' },
-  });
+  const inFlight = locationsInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
 
-  if (token) {
-    attempts.push({
-      url: withLanguage(`${API_PROXY_BASE_URL}/user/locations/available?token=${encodeURIComponent(token)}`),
-      init: { method: 'GET', headers, credentials: 'include' },
-    });
+  const now = Date.now();
+  const cooldownUntil = locationsCooldownUntil.get(cacheKey);
+  if (cooldownUntil && cooldownUntil > now) {
+    const fallback = cacheGet<LocationItem[]>(cacheKey);
+    return fallback || [];
   }
 
-  const languagePayload = apiLanguage
-    ? { language_code: apiLanguage, language: apiLanguage }
-    : {};
+  const fetchPromise = (async () => {
+    const token = getUserToken();
+    const headers = {
+      ...buildJsonHeaders(token),
+      ...(apiLanguage ? { 'Accept-Language': apiLanguage } : {}),
+    };
+    const languageQuery = apiLanguage ? `language_code=${encodeURIComponent(apiLanguage)}` : '';
+    const url = languageQuery
+      ? `${API_PROXY_BASE_URL}/user/locations/available?${languageQuery}`
+      : `${API_PROXY_BASE_URL}/user/locations/available`;
 
-  attempts.push({
-    url: withLanguage(`${API_PROXY_BASE_URL}/user/locations/available`),
-    init: {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ user_id: userId, ...languagePayload }),
-      credentials: 'include',
-    },
-  });
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        credentials: 'include',
+      });
 
-  attempts.push({
-    url: withLanguage(`${API_PROXY_BASE_URL}/user/locations/available`),
-    init: {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ id: userId, ...languagePayload }),
-      credentials: 'include',
-    },
-  });
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        let cooldownMs = 5000;
+        if (retryAfter) {
+          const asSeconds = Number(retryAfter);
+          if (Number.isFinite(asSeconds) && asSeconds > 0) {
+            cooldownMs = asSeconds * 1000;
+          } else {
+            const asDate = Date.parse(retryAfter);
+            if (!Number.isNaN(asDate)) {
+              cooldownMs = Math.max(1000, asDate - Date.now());
+            }
+          }
+        }
+        locationsCooldownUntil.set(cacheKey, Date.now() + cooldownMs);
+        const fallback = cacheGet<LocationItem[]>(cacheKey);
+        if (fallback) return fallback;
+        throw new Error('Слишком много запросов. Повторите позже.');
+      }
 
-  return fetchJsonWithFallbacks<LocationItem[]>(attempts);
+      if (!response.ok) {
+        throw new Error(`Ошибка сервера: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const items = Array.isArray(data)
+        ? data
+        : Array.isArray((data as { locations?: LocationItem[] }).locations)
+          ? (data as { locations: LocationItem[] }).locations
+          : [];
+
+      cacheSet(cacheKey, items);
+      return items;
+    } catch (error) {
+      const fallback = cacheGet<LocationItem[]>(cacheKey);
+      if (fallback) return fallback;
+      throw (error instanceof Error ? error : new Error('Не удалось загрузить локации'));
+    }
+  })();
+
+  locationsInFlight.set(cacheKey, fetchPromise);
+  try {
+    return await fetchPromise;
+  } finally {
+    locationsInFlight.delete(cacheKey);
+  }
 };
 
 export const updateLocations = async (userId: number, locations: number[]): Promise<string> => {
@@ -621,9 +727,15 @@ export const updateLocations = async (userId: number, locations: number[]): Prom
   return fetchJsonWithFallbacks<string>(attempts);
 };
 
-export const setUserCurrency = async (userId: number, currency: string): Promise<string> => {
+export const setUserCurrency = async (
+  userId: number,
+  currency: string,
+  currencyId?: number | null
+): Promise<string> => {
   const token = getUserToken();
   const headers = buildJsonHeaders(token);
+  const resolvedCurrencyId =
+    typeof currencyId === 'number' && Number.isFinite(currencyId) ? currencyId : null;
   const attempts: Array<{ url: string; init: RequestInit }> = [
     {
       url: `${API_PROXY_BASE_URL}/user/currency`,
@@ -643,6 +755,28 @@ export const setUserCurrency = async (userId: number, currency: string): Promise
         credentials: 'include',
       },
     },
+    ...(resolvedCurrencyId !== null
+      ? [
+          {
+            url: `${API_PROXY_BASE_URL}/user/currency`,
+            init: {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ currency_id: resolvedCurrencyId }),
+              credentials: 'include',
+            },
+          },
+          {
+            url: `${API_PROXY_BASE_URL}/user/currency`,
+            init: {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ currency: resolvedCurrencyId }),
+              credentials: 'include',
+            },
+          },
+        ]
+      : []),
     {
       url: `${API_PROXY_BASE_URL}/user/currency`,
       init: {
@@ -661,6 +795,28 @@ export const setUserCurrency = async (userId: number, currency: string): Promise
         credentials: 'include',
       },
     },
+    ...(resolvedCurrencyId !== null
+      ? [
+          {
+            url: `${API_PROXY_BASE_URL}/user/currency`,
+            init: {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ user_id: userId, currency_id: resolvedCurrencyId }),
+              credentials: 'include',
+            },
+          },
+          {
+            url: `${API_PROXY_BASE_URL}/user/currency`,
+            init: {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ id: userId, currency_id: resolvedCurrencyId }),
+              credentials: 'include',
+            },
+          },
+        ]
+      : []),
   ];
 
   if (token) {
@@ -673,6 +829,17 @@ export const setUserCurrency = async (userId: number, currency: string): Promise
         credentials: 'include',
       },
     });
+    if (resolvedCurrencyId !== null) {
+      attempts.push({
+        url: `${API_PROXY_BASE_URL}/user/currency?token=${encodeURIComponent(token)}`,
+        init: {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ currency_id: resolvedCurrencyId }),
+          credentials: 'include',
+        },
+      });
+    }
   }
 
   return fetchJsonWithFallbacks<string>(attempts);
@@ -747,6 +914,10 @@ export const fetchDeviceButtons = async (userId: number): Promise<DeviceButtonOp
   const attempts: Array<{ url: string; init: RequestInit }> = [
     {
       url: `${API_PROXY_BASE_URL}/user/devices/number/buttons`,
+      init: { method: 'GET', headers, credentials: 'include' },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/devices/number/buttons`,
       init: { method: 'GET', headers, credentials: 'include' },
     },
   ];
@@ -851,7 +1022,24 @@ export const setDeviceNumber = async (userId: number, deviceNumber: number): Pro
 export const fetchDeviceTariff = async (userId: number, deviceNumber: number): Promise<DeviceTariffResponse> => {
   const token = getUserToken();
   const headers = buildJsonHeaders(token);
+  const query = `device_number=${encodeURIComponent(deviceNumber)}`;
   const attempts: Array<{ url: string; init: RequestInit }> = [
+    {
+      url: `${API_PROXY_BASE_URL}/user/devices/number/tariff?${query}`,
+      init: { method: 'GET', headers, credentials: 'include' },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/devices/number/tariff?${query}`,
+      init: { method: 'GET', headers, credentials: 'include' },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/user/devices/tariff?${query}`,
+      init: { method: 'GET', headers, credentials: 'include' },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/devices/tariff?${query}`,
+      init: { method: 'GET', headers, credentials: 'include' },
+    },
     {
       url: `${API_PROXY_BASE_URL}/user/devices/number/tariff`,
       init: {
@@ -888,6 +1076,24 @@ export const fetchDeviceTariff = async (userId: number, deviceNumber: number): P
         credentials: 'include',
       },
     },
+    {
+      url: `${API_PROXY_BASE_URL}/user/devices/tariff`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ user_id: userId, device_number: deviceNumber }),
+        credentials: 'include',
+      },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/devices/tariff`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ user_id: userId, device_number: deviceNumber }),
+        credentials: 'include',
+      },
+    },
   ];
 
   if (token) {
@@ -900,33 +1106,247 @@ export const fetchDeviceTariff = async (userId: number, deviceNumber: number): P
         credentials: 'include',
       },
     });
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/user/devices/number/tariff?token=${encodeURIComponent(token)}&${query}`,
+      init: { method: 'GET', headers, credentials: 'include' },
+    });
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/devices/number/tariff?token=${encodeURIComponent(token)}&${query}`,
+      init: { method: 'GET', headers, credentials: 'include' },
+    });
   }
 
   return fetchJsonWithFallbacks<DeviceTariffResponse>(attempts);
+};
+
+const parsePaymentNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const cleaned = value.replace(/[^0-9.,-]/g, '').replace(',', '.');
+    if (!cleaned) return null;
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const normalizePaymentHistory = (data: unknown): PaymentHistoryItem[] => {
+  if (!data) return [];
+  const extractList = (payload: unknown): unknown[] => {
+    if (Array.isArray(payload)) return payload;
+    if (payload && typeof payload === 'object') {
+      const record = payload as Record<string, unknown>;
+      if (Array.isArray(record.items)) return record.items;
+      if (Array.isArray(record.results)) return record.results;
+      if (Array.isArray(record.data)) return record.data;
+      if (Array.isArray(record.payments)) return record.payments;
+      if (Array.isArray(record.history)) return record.history;
+      if (Array.isArray(record.transactions)) return record.transactions;
+      if (Array.isArray(record.operations)) return record.operations;
+    }
+    return [];
+  };
+
+  const list = extractList(data);
+  const payloadCurrency =
+    data && typeof data === 'object'
+      ? ((data as Record<string, unknown>).currency as Record<string, unknown> | undefined)
+      : undefined;
+  const payloadCurrencyCode =
+    (typeof payloadCurrency?.code === 'string' && payloadCurrency.code) ||
+    (typeof payloadCurrency?.currency_code === 'string' && payloadCurrency.currency_code) ||
+    (typeof payloadCurrency?.name === 'string' && payloadCurrency.name) ||
+    undefined;
+  return list.map((entry) => {
+    const record = entry && typeof entry === 'object' ? (entry as Record<string, unknown>) : {};
+    const amountRaw =
+      record.amount ??
+      record.sum ??
+      record.value ??
+      record.total ??
+      record.price ??
+      record.amount_total ??
+      record.amount_value;
+    const amount = parsePaymentNumber(amountRaw) ?? 0;
+    const currency =
+      (typeof record.currency_code === 'string' && record.currency_code) ||
+      (typeof record.currency === 'string' && record.currency) ||
+      (typeof record.code === 'string' && record.code) ||
+      payloadCurrencyCode ||
+      undefined;
+    const createdAt =
+      (typeof record.created_at === 'string' && record.created_at) ||
+      (typeof record.createdAt === 'string' && record.createdAt) ||
+      (typeof record.date === 'string' && record.date) ||
+      (typeof record.created === 'string' && record.created) ||
+      (typeof record.time === 'string' && record.time) ||
+      undefined;
+    const title =
+      (typeof record.title === 'string' && record.title) ||
+      (typeof record.operation === 'string' && record.operation) ||
+      (typeof record.type === 'string' && record.type) ||
+      (typeof record.name === 'string' && record.name) ||
+      undefined;
+    const subtitle =
+      (typeof record.subtitle === 'string' && record.subtitle) ||
+      (typeof record.method === 'string' && record.method) ||
+      (typeof record.provider === 'string' && record.provider) ||
+      (typeof record.payment_system === 'string' && record.payment_system) ||
+      (typeof record.description === 'string' && record.description) ||
+      undefined;
+    const id = record.id ?? record.uid ?? record.uuid ?? record.payment_id ?? undefined;
+    const direction = amount < 0 ? 'out' : 'in';
+    return {
+      id: typeof id === 'string' || typeof id === 'number' ? id : undefined,
+      title,
+      subtitle,
+      amount,
+      currency,
+      created_at: createdAt,
+      direction,
+      ...record,
+    } as PaymentHistoryItem;
+  });
+};
+
+export const fetchPaymentsHistory = async (userId?: number): Promise<PaymentHistoryItem[]> => {
+  const token =
+    getUserToken() ||
+    (typeof window !== 'undefined'
+      ? (localStorage.getItem('auth_access_token') || localStorage.getItem('access_token'))
+      : null);
+  const headers = buildJsonHeaders(token);
+  const attempts: Array<{ url: string; init: RequestInit }> = [];
+  const basePath = `${API_PROXY_BASE_URL}/user/payments`;
+
+  attempts.push({
+    url: basePath,
+    init: { method: 'GET', headers, credentials: 'include' },
+  });
+
+  if (token) {
+    attempts.push({
+      url: `${basePath}?token=${encodeURIComponent(token)}`,
+      init: { method: 'GET', headers, credentials: 'include' },
+    });
+  } else if (userId) {
+    attempts.push({
+      url: `${basePath}?user_id=${encodeURIComponent(userId)}`,
+      init: { method: 'GET', headers, credentials: 'include' },
+    });
+  }
+
+  const data = await fetchJsonWithFallbacks<unknown>(attempts);
+  return normalizePaymentHistory(data);
+};
+
+
+const normalizeReferredUsers = (data: unknown): ReferredUser[] => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data as ReferredUser[];
+  if (typeof data !== 'object') return [];
+
+  const record = data as Record<string, unknown>;
+  const list =
+    (Array.isArray(record.items) && record.items) ||
+    (Array.isArray(record.results) && record.results) ||
+    (Array.isArray(record.data) && record.data) ||
+    (Array.isArray(record.referred) && record.referred) ||
+    (Array.isArray(record.users) && record.users) ||
+    (Array.isArray(record.referrals) && record.referrals) ||
+    [];
+
+  if (!Array.isArray(list)) return [];
+
+  return list.map((item) => {
+    if (!item || typeof item !== 'object') return {} as ReferredUser;
+    const raw = item as Record<string, unknown>;
+    const fullName =
+      (typeof raw.full_name === 'string' && raw.full_name) ||
+      (typeof raw.fullName === 'string' && raw.fullName) ||
+      (typeof raw.name === 'string' && raw.name) ||
+      (typeof raw.first_name === 'string' || typeof raw.last_name === 'string'
+        ? [raw.first_name, raw.last_name].filter(Boolean).join(' ')
+        : undefined);
+    const username =
+      (typeof raw.username === 'string' && raw.username) ||
+      (typeof raw.telegram_username === 'string' && raw.telegram_username) ||
+      (typeof raw.tg_username === 'string' && raw.tg_username) ||
+      (typeof raw.handle === 'string' && raw.handle);
+    const connected =
+      (typeof raw.connected === 'boolean' && raw.connected) ||
+      (typeof raw.is_connected === 'boolean' && raw.is_connected) ||
+      (typeof raw.active === 'boolean' && raw.active) ||
+      (typeof raw.is_active === 'boolean' && raw.is_active) ||
+      (typeof raw.isConnected === 'boolean' && raw.isConnected) ||
+      false;
+    const amountRaw =
+      raw.amount ?? raw.bonus ?? raw.reward ?? raw.sum ?? raw.earned ?? raw.bonus_amount;
+    const amount = typeof amountRaw === 'number' ? amountRaw : Number(amountRaw || 0) || undefined;
+
+    return {
+      ...raw,
+      full_name: fullName || (typeof raw.full_name === 'string' ? raw.full_name : undefined),
+      username: username || (typeof raw.username === 'string' ? raw.username : undefined),
+      connected,
+      amount,
+    };
+  });
 };
 
 export const fetchReferredUsers = async (): Promise<ReferredUser[]> => {
   const token = getUserToken();
 
   if (!token) {
-    throw new Error('Токен пользователя не найден');
+    throw new Error('User token not found');
   }
 
-  const response = await fetch(`${API_PROXY_BASE_URL}/user/referred?token=${encodeURIComponent(token)}`, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
+  const headers = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    ...buildAuthHeaders(token),
+  };
+
+  const storedUserId =
+    typeof window !== 'undefined' ? localStorage.getItem('user_id') || undefined : undefined;
+
+  const attempts: Array<{ url: string; init: RequestInit }> = [
+    {
+      url: API_PROXY_BASE_URL + '/user/referred',
+      init: { method: 'GET', headers, credentials: 'include' },
     },
-    credentials: 'include',
-  });
+    {
+      url: API_PROXY_BASE_URL + '/user/referred?token=' + encodeURIComponent(token),
+      init: { method: 'GET', headers, credentials: 'include' },
+    },
+  ];
 
-  if (!response.ok) {
-    throw new Error(`Ошибка сервера: ${response.status}`);
+  if (storedUserId) {
+    attempts.push(
+      {
+        url: API_PROXY_BASE_URL + '/user/referred?user_id=' + encodeURIComponent(storedUserId),
+        init: { method: 'GET', headers, credentials: 'include' },
+      },
+      {
+        url: API_PROXY_BASE_URL + '/user/referred?uid=' + encodeURIComponent(storedUserId),
+        init: { method: 'GET', headers, credentials: 'include' },
+      },
+      {
+        url: API_PROXY_BASE_URL + '/user/referred',
+        init: {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ user_id: Number(storedUserId) }),
+          credentials: 'include',
+        },
+      }
+    );
   }
 
-  return response.json();
+  const data = await fetchJsonWithFallbacks<unknown>(attempts);
+  return normalizeReferredUsers(data);
 };
+
 
 export const authUserById = async (userId: number): Promise<string> => {
   const response = await fetch(
@@ -1234,15 +1654,28 @@ const parseAuthMethods = (data: unknown): { email?: string; telegram?: string; t
 
 export const fetchAuthMethods = async (accessToken: string): Promise<{ email?: string; telegram?: string; telegramLinked?: boolean; telegramUsername?: string; fullName?: string } | null> => {
   if (!AUTH_PROFILE_ENABLED) {
+    const cached = cacheGetWithMeta<{ email?: string; telegram?: string; telegramLinked?: boolean; telegramUsername?: string; fullName?: string }>('auth_profile', CACHE_TTL.authProfile);
+    if (cached.data && cached.meta?.token === accessToken) {
+      return cached.data;
+    }
     return null;
   }
-  const response = await authFetch(`/users/me/auth-methods`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  });
+  let response: Response | null = null;
+  try {
+    response = await authFetch(`/users/me/auth-methods`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+  } catch {
+    const cached = cacheGetWithMeta<{ email?: string; telegram?: string; telegramLinked?: boolean; telegramUsername?: string; fullName?: string }>('auth_profile', CACHE_TTL.authProfile);
+    if (cached.data && cached.meta?.token === accessToken) {
+      return cached.data;
+    }
+    return null;
+  }
 
   if (!response.ok) {
     const cached = cacheGetWithMeta<{ email?: string; telegram?: string; telegramLinked?: boolean }>('auth_profile', CACHE_TTL.authProfile);
@@ -1272,15 +1705,28 @@ const storeAuthTokens = (tokens: AuthTokens) => {
 
 export const fetchAuthProfile = async (accessToken: string): Promise<AuthUserProfile | null> => {
   if (!AUTH_PROFILE_ENABLED) {
+    const cached = cacheGetWithMeta<AuthUserProfile>('auth_profile', CACHE_TTL.authProfile);
+    if (cached.data && cached.meta?.token === accessToken) {
+      return cached.data;
+    }
     return null;
   }
-  const response = await authFetch(`/users/me`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
-  });
+  let response: Response | null = null;
+  try {
+    response = await authFetch(`/users/me`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+  } catch {
+    const cached = cacheGetWithMeta<AuthUserProfile>('auth_profile', CACHE_TTL.authProfile);
+    if (cached.data && cached.meta?.token === accessToken) {
+      return cached.data;
+    }
+    return null;
+  }
 
   if (!response.ok) {
     if ([401, 403].includes(response.status) && typeof window !== 'undefined') {

@@ -84,16 +84,21 @@
 .logo {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   cursor: pointer;
   text-decoration: none;
   color: inherit;
+  transition: opacity 0.2s;
+}
+
+.logo:hover {
+  opacity: 0.8;
 }
 
 .logo-image {
   width: 22px;
   height: 22px;
-  object-fit: contain;
+  object-fit: cover;
   display: block;
 }
 
@@ -321,10 +326,10 @@ body:not(.theme-transition) .profile-slide-menu {
 }
 
 .profile-menu-close {
-  position: absolute;
-  top: 24px;
-  right: 20px;
-  height: 18px;
+  align-self: flex-end;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 4px;
   background: transparent;
   border: none;
   color: var(--text-secondary);

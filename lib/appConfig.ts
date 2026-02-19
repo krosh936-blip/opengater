@@ -44,5 +44,5 @@ export const TELEGRAM_OAUTH_URL = ACTIVE_PROFILE.telegramOAuthUrl;
 // Домен окна авторизации (popup) для email/telegram.
 export const AUTH_POPUP_ORIGIN = 'https://reauth.cloud';
 // Включает запросы к auth-профилю (/api/auth/users/me).
-// Пока auth-бэкенд на eutochkin выключен, держим false, чтобы не ловить 502.
-export const AUTH_PROFILE_ENABLED = false;
+// Для CDN-апстримов обычно доступен, для eutochkin может падать.
+export const AUTH_PROFILE_ENABLED = ACTIVE_PROFILE.name === 'cdn';
