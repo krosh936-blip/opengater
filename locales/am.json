@@ -4,6 +4,7 @@
   "actions.more": "Ավելին",
   "balance.deposit": "Լրացնել",
   "balance.title": "Ձեր մնացորդը",
+  "payment.min_error": "Նվազագույն գումարը՝ {amount} {currency}",
   "devices.current_tariff": "Ներկայիս սակագին",
   "devices.custom_label": "Սարքերի սեփական քանակություն",
   "devices.custom_placeholder": "Մուտքագրեք քանակությունը 2-ից 100 մինչև",

@@ -18,7 +18,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
   const autoplayRef = useRef<NodeJS.Timeout>();
   const prevSlideRef = useRef(0);
   const [locations, setLocations] = useState<LocationItem[]>([]);
-  const { currency, formatNumber, formatCurrency } = useCurrency();
+  const { currency, formatNumber, formatCurrency, convertAmount } = useCurrency();
 
   // Используем хук для получения данных пользователя
   const { user, isLoading, error, isAuthenticated } = useUser();
@@ -225,7 +225,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
   }, [user?.id, user?.currency?.code, language, languageRefreshId]);
 
   const balanceAmount = user?.balance ?? 0;
-  const displayAmount = formatNumber(balanceAmount);
+  const displayAmount = formatNumber(convertAmount(balanceAmount, user?.currency || null, currency.code));
 
   const selectedLocationFlags = locations
     .filter((loc) => loc.selected)

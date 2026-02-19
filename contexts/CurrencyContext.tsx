@@ -12,6 +12,7 @@ interface CurrencyContextType {
   formatCurrency: (value: number, options?: { showSymbol?: boolean; showCode?: boolean }) => string;
   formatNumber: (value: number) => string;
   toRub: (value: number, fromCurrency?: Currency | null) => number;
+  convertAmount: (value: number, fromCurrency?: Currency | null, toCurrencyCode?: string) => number;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
@@ -131,6 +132,19 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
     return (Number(value) || 0) * source.rate;
   };
 
+  const convertAmount = (value: number, fromCurrency?: Currency | null, toCurrencyCode?: string) => {
+    const source = fromCurrency || currency;
+    const target = toCurrencyCode ? findCurrency(currencies, toCurrencyCode) : currency;
+    if (!source || !target) return Number(value) || 0;
+    if (source.code === target.code) return Number(value) || 0;
+    const sourceRate = Number(source.rate) || 0;
+    const targetRate = Number(target.rate) || 0;
+    if (!sourceRate || !targetRate) return Number(value) || 0;
+    const rubValue = source.code === 'RUB' ? (Number(value) || 0) : (Number(value) || 0) * sourceRate;
+    if (target.code === 'RUB') return rubValue;
+    return rubValue / targetRate;
+  };
+
   const formatNumber = (value: number) => {
     const normalized = Number(value) || 0;
     const precision = currency?.rounding_precision ?? 0;
@@ -194,6 +208,7 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
         formatCurrency,
         formatNumber,
         toRub,
+        convertAmount,
       }}
     >
       {children}
