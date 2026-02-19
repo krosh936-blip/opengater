@@ -13,6 +13,7 @@ interface CurrencyContextType {
   formatNumber: (value: number) => string;
   toRub: (value: number, fromCurrency?: Currency | null) => number;
   convertAmount: (value: number, fromCurrency?: Currency | null, toCurrencyCode?: string) => number;
+  formatMoneyFrom: (value: number, fromCurrency?: Currency | null, options?: { showSymbol?: boolean; showCode?: boolean }) => string;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
@@ -163,6 +164,11 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
     return `${symbol}${valueFormatted}`;
   };
 
+  const formatMoneyFrom = (value: number, fromCurrency?: Currency | null, options?: { showSymbol?: boolean; showCode?: boolean }) => {
+    const converted = convertAmount(value, fromCurrency, currency.code);
+    return formatCurrency(converted, options);
+  };
+
   const setCurrencyCode = async (code: string) => {
     if (code === selectedCode) return;
     const nextCurrency = findCurrency(currencies, code);
@@ -209,6 +215,7 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
         formatNumber,
         toRub,
         convertAmount,
+        formatMoneyFrom,
       }}
     >
       {children}

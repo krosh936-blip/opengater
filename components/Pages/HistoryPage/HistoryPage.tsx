@@ -61,7 +61,7 @@ const formatDateLabel = (date: Date, language: string, t: (key: string, options?
 export default function HistoryPage() {
   const { t, language } = useLanguage();
   const { user, isLoading, error, isAuthenticated } = useUser();
-  const { currency, currencies, convertAmount, formatNumber } = useCurrency();
+  const { currency, currencies, formatMoneyFrom } = useCurrency();
   const [query, setQuery] = useState('');
   const [payments, setPayments] = useState<PaymentHistoryItem[]>([]);
   const [isPaymentsLoading, setIsPaymentsLoading] = useState(true);
@@ -103,14 +103,13 @@ export default function HistoryPage() {
         currencies.find((item) => item.code === (paymentCurrency || user?.currency?.code)) ||
         user?.currency ||
         null;
-      const converted = convertAmount(amountValue, fromCurrency, currency.code);
-      const amount = formatNumber(converted);
+      const amount = formatMoneyFrom(amountValue, fromCurrency, { showCode: true, showSymbol: false });
       const title = payment.title || '';
       const subtitle = payment.subtitle || '';
       const haystack = `${title} ${subtitle} ${amount} ${paymentCurrency} ${dateText}`.toLowerCase();
       return haystack.includes(search);
     });
-  }, [payments, query, language, currencies, currency.code, convertAmount, formatNumber, user?.currency]);
+  }, [payments, query, language, currencies, currency.code, formatMoneyFrom, user?.currency]);
 
   const groupedPayments = useMemo<PaymentGroup[]>(() => {
     const groups = new Map<string, PaymentGroup>();
@@ -206,8 +205,8 @@ export default function HistoryPage() {
                   currencies.find((item) => item.code === (payment.currency || user?.currency?.code)) ||
                   user?.currency ||
                   null;
-                const converted = convertAmount(Math.abs(amountValue), fromCurrency, currency.code);
-                const amountLabel = `${amountValue >= 0 ? '+' : '-'}${formatNumber(converted)} ${currency.code}`.trim();
+                const formattedAmount = formatMoneyFrom(Math.abs(amountValue), fromCurrency, { showCode: true, showSymbol: false });
+                const amountLabel = `${amountValue >= 0 ? '+' : '-'}${formattedAmount}`.trim();
                 const date = parseDateSafe(payment.created_at);
                 return (
                   <div key={payment.id ?? `${payment.title}-${payment.created_at}-${amountLabel}`} className="payment-item">

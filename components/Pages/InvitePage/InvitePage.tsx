@@ -24,7 +24,7 @@ const detectTelegram = () => {
 export default function InvitePage({ onBack }: InvitePageProps) {
   const { t } = useLanguage();
   const { user, isLoading, error, isAuthenticated } = useUser();
-  const { formatCurrency, currencyRefreshId, convertAmount, currency } = useCurrency();
+  const { currencyRefreshId, formatMoneyFrom } = useCurrency();
   const [referredUsers, setReferredUsers] = useState<ReferredUser[]>([]);
   const [isLoadingReferrals, setIsLoadingReferrals] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
@@ -71,10 +71,8 @@ export default function InvitePage({ onBack }: InvitePageProps) {
   const referralLink = user?.bot_referral_link || user?.web_referral_link || '';
 
   const baseCurrency = user?.currency || null;
-  const toDisplayCurrency = (value: number) =>
-    formatCurrency(convertAmount(value, baseCurrency, currency.code), { showCode: true, showSymbol: false });
-  const formatPrice = (price: number) => toDisplayCurrency(price);
-  const displayPrice = (amount: number) => toDisplayCurrency(amount);
+  const formatPrice = (price: number) => formatMoneyFrom(price, baseCurrency, { showCode: true, showSymbol: false });
+  const displayPrice = (amount: number) => formatMoneyFrom(amount, baseCurrency, { showCode: true, showSymbol: false });
 
   const invitedCount = referredUsers.length;
   const connectedCount = referredUsers.filter((u) => u.connected === true).length;
