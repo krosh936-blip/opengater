@@ -217,34 +217,10 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
     return null;
   }, [selectedDeviceNumber, tariffs]);
 
-  const selectedInlinePrice = useMemo(() => {
-    if (selectedDeviceNumber == null) return null;
-    const plan = sortedPlans.find((item) => item.device_number === selectedDeviceNumber);
-    if (!plan) return null;
-    const record = plan as Record<string, unknown>;
-    return (
-      parsePriceValue(record.tariff_per_month) ??
-      parsePriceValue(record.tariff) ??
-      parsePriceValue(record.price)
-    );
-  }, [selectedDeviceNumber, sortedPlans, parsePriceValue]);
-
   const currentUserTariff = useMemo(() => {
     if (!user?.device_number) return null;
     return tariffs[user.device_number] || null;
   }, [tariffs, user?.device_number]);
-
-  const currentPlanInlinePrice = useMemo(() => {
-    if (!user?.device_number) return null;
-    const plan = sortedPlans.find((item) => item.device_number === user.device_number);
-    if (!plan) return null;
-    const record = plan as Record<string, unknown>;
-    return (
-      parsePriceValue(record.tariff_per_month) ??
-      parsePriceValue(record.tariff) ??
-      parsePriceValue(record.price)
-    );
-  }, [sortedPlans, user?.device_number, parsePriceValue]);
 
   const discountPercent = 0;
   const discountValue = 0;
@@ -379,9 +355,7 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
             <div className="price-value">
               {currentUserTariff && Number.isFinite(Number(currentUserTariff.tariff_per_month))
                 ? formatCurrency(currentUserTariff.tariff_per_month)
-                : currentPlanInlinePrice != null
-                  ? formatCurrency(currentPlanInlinePrice)
-                  : '...'}
+                : '...'}
             </div>
             <div className="price-period">{t('devices.per_month')}</div>
           </div>
@@ -394,12 +368,7 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
           text: String(num),
           selected: num === selectedDeviceNumber,
         }))).map((plan) => {
-          const planRecord = plan as Record<string, unknown>;
-          const inlinePrice =
-            parsePriceValue(planRecord.tariff_per_month) ??
-            parsePriceValue(planRecord.tariff) ??
-            parsePriceValue(planRecord.price);
-          const price = tariffs[plan.device_number]?.tariff_per_month ?? inlinePrice;
+          const price = tariffs[plan.device_number]?.tariff_per_month ?? null;
           const isActive = selectedDeviceNumber === plan.device_number;
           const isPopular = plan.device_number === 3;
           const showSavings = plan.device_number === 5 || plan.device_number === 10;
@@ -449,9 +418,7 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
           <span className="pricing-value pricing-total">
             {selectedTariff && Number.isFinite(Number(selectedTariff.tariff_per_month))
               ? formatCurrency(selectedTariff.tariff_per_month)
-              : selectedInlinePrice != null
-                ? formatCurrency(selectedInlinePrice)
-                : '...'}
+              : '...'}
           </span>
         </div>
       </div>
