@@ -1,6 +1,6 @@
 ﻿'use client';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
-import { Currency, fetchCurrencies, setUserCurrency } from '@/lib/api';
+import { Currency, fetchCurrencies, recoverUserTokenFromAuth, setUserCurrency } from '@/lib/api';
 import { useUser } from '@/contexts/UserContext';
 
 interface CurrencyContextType {
@@ -273,6 +273,11 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       await setUserCurrency(user.id, code, nextCurrencyId);
+      try {
+        await recoverUserTokenFromAuth();
+      } catch {
+        // Keep the current token if reissue is not available.
+      }
       if (typeof window !== 'undefined') {
         localStorage.setItem(PENDING_KEY, code);
         localStorage.setItem(PENDING_TS_KEY, String(Date.now()));
