@@ -225,6 +225,7 @@
   "referral.status_connected": "Connected",
   "referral.status_invited": "Invited",
   "referral.link_not_found": "Link not found",
+  "referral.bot_link": "Bot link",
   "referral.share_message": "🎁 Join Opengater and get {bonus} on your balance!\n\n💰 Benefits:\n• {bonus} bonus after registration\n• Referral program\n\n🔗 Your personal link:",
   "toast.link_loading": "Link is still loading",
   "toast.link_copied": "Link copied!",

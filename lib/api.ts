@@ -276,6 +276,11 @@ const buildAuthHeaders = (token?: string | null): HeadersInit => {
   return { 'Authorization': `Bearer ${token}` };
 };
 
+const appendCacheBust = (url: string): string => {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}_ts=${Date.now()}`;
+};
+
 const buildJsonHeaders = (token?: string | null): HeadersInit => ({
   'Accept': 'application/json',
   'Content-Type': 'application/json',
@@ -284,6 +289,7 @@ const buildJsonHeaders = (token?: string | null): HeadersInit => ({
 
 const fetchJsonWithFallbacks = async <T>(attempts: Array<{ url: string; init: RequestInit }>): Promise<T> => {
   let lastError: Error | null = null;
+  let lastStatus: number | null = null;
   for (const attempt of attempts) {
     try {
       const init: RequestInit = {
@@ -292,6 +298,11 @@ const fetchJsonWithFallbacks = async <T>(attempts: Array<{ url: string; init: Re
       };
       const response = await fetch(attempt.url, init);
       if (!response.ok) {
+        lastStatus = response.status;
+        if (response.status === 429) {
+          lastError = new Error('Server error: 429');
+          break;
+        }
         lastError = new Error('Server error: ' + response.status);
         continue;
       }
@@ -309,6 +320,9 @@ const fetchJsonWithFallbacks = async <T>(attempts: Array<{ url: string; init: Re
     }
   }
   if (lastError) {
+    if (lastStatus === 429) {
+      throw new Error('Server error: 429');
+    }
     throw lastError;
   }
   throw new Error('Failed to load data');
@@ -387,9 +401,14 @@ export const fetchUserInfo = async (): Promise<UserInfo> => {
 
       if (!response.ok) {
         lastStatus = response.status;
-        if ([401, 403, 404].includes(response.status)) {
+        if ([401, 403].includes(response.status)) {
           lastError = new Error('Недействительный токен. Пожалуйста, войдите снова');
           continue;
+        }
+
+        if (response.status === 429) {
+          lastError = new Error('Ошибка сервера: 429');
+          break;
         }
 
         if (response.status === 422) {
@@ -415,7 +434,7 @@ export const fetchUserInfo = async (): Promise<UserInfo> => {
       lastError.message.includes('Недействительный токен') ||
       lastError.message.includes('401') ||
       lastError.message.includes('403');
-    if (!isAuthError && (lastStatus === null || lastStatus >= 500)) {
+    if (!isAuthError && (lastStatus === null || lastStatus === 404 || lastStatus === 429 || lastStatus >= 500)) {
       const { data, meta } = cacheGetWithMeta<UserInfo>('user', CACHE_TTL.user);
       if (data && typeof meta.token === 'string' && meta.token === token) {
         return data;
@@ -649,21 +668,28 @@ export const fetchAvailableLocations = async (
   userId: number,
   language?: string,
   currencyCode?: string,
-  serverCurrencyCode?: string
+  serverCurrencyCode?: string,
+  forceNetwork = false
 ): Promise<LocationItem[]> => {
   const apiLanguage = language === 'am' ? 'hy' : language;
   const cacheKey = getLocationsCacheKey(userId, apiLanguage, currencyCode, serverCurrencyCode);
-  const cached = cacheGet<LocationItem[]>(cacheKey, CACHE_TTL.locations);
-  if (cached) return cached;
+  if (!forceNetwork) {
+    const cached = cacheGet<LocationItem[]>(cacheKey, CACHE_TTL.locations);
+    if (cached) return cached;
+  }
 
-  const inFlight = locationsInFlight.get(cacheKey);
-  if (inFlight) return inFlight;
+  if (!forceNetwork) {
+    const inFlight = locationsInFlight.get(cacheKey);
+    if (inFlight) return inFlight;
+  }
 
-  const now = Date.now();
-  const cooldownUntil = locationsCooldownUntil.get(cacheKey);
-  if (cooldownUntil && cooldownUntil > now) {
-    const fallback = cacheGet<LocationItem[]>(cacheKey);
-    return fallback || [];
+  if (!forceNetwork) {
+    const now = Date.now();
+    const cooldownUntil = locationsCooldownUntil.get(cacheKey);
+    if (cooldownUntil && cooldownUntil > now) {
+      const fallback = cacheGet<LocationItem[]>(cacheKey);
+      return fallback || [];
+    }
   }
 
   const fetchPromise = (async () => {
@@ -673,9 +699,10 @@ export const fetchAvailableLocations = async (
       ...(apiLanguage ? { 'Accept-Language': apiLanguage } : {}),
     };
     const languageQuery = apiLanguage ? `language_code=${encodeURIComponent(apiLanguage)}` : '';
-    const url = languageQuery
+    const baseUrl = languageQuery
       ? `${API_PROXY_BASE_URL}/user/locations/available?${languageQuery}`
       : `${API_PROXY_BASE_URL}/user/locations/available`;
+    const url = forceNetwork ? appendCacheBust(baseUrl) : baseUrl;
 
     try {
       const response = await fetch(url, {
@@ -766,7 +793,7 @@ export const fetchLocationsTariff = async (
   const query = params.toString();
   const data = await fetchJsonWithFallbacks<unknown>([
     {
-      url: `${API_PROXY_BASE_URL}/user/locations/tariff${query ? `?${query}` : ''}`,
+      url: appendCacheBust(`${API_PROXY_BASE_URL}/user/locations/tariff${query ? `?${query}` : ''}`),
       init: {
         method: 'GET',
         headers: buildJsonHeaders(token),
@@ -802,17 +829,46 @@ export const setUserCurrency = async (
   void _userId;
   void _currencyId;
   const token = getUserToken();
-  const result = await fetchJsonWithFallbacks<unknown>([
+  const normalizedCode = String(currency || '').trim().toUpperCase();
+  if (!normalizedCode) {
+    throw new Error('Ошибка валидации: currency_code is required');
+  }
+  const headers = buildJsonHeaders(token);
+  const payload = { currency_code: normalizedCode };
+  const attempts: Array<{ url: string; init: RequestInit }> = [
     {
       url: `${API_PROXY_BASE_URL}/user/currency`,
       init: {
         method: 'POST',
-        headers: buildJsonHeaders(token),
-        body: JSON.stringify({ currency_code: currency }),
+        headers,
+        body: JSON.stringify(payload),
         credentials: 'include',
       },
     },
-  ]);
+    {
+      url: `${API_PROXY_BASE_URL}/user/currency/`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        credentials: 'include',
+      },
+    },
+  ];
+
+  if (token) {
+    attempts.push({
+      url: `${API_PROXY_BASE_URL}/user/currency?token=${encodeURIComponent(token)}`,
+      init: {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        credentials: 'include',
+      },
+    });
+  }
+
+  const result = await fetchJsonWithFallbacks<unknown>(attempts);
   return typeof result === 'string' ? result : 'OK';
 };
 
@@ -912,7 +968,7 @@ export const fetchDeviceButtons = async (_userId: number): Promise<DeviceButtonO
   const token = getUserToken();
   return fetchJsonWithFallbacks<DeviceButtonOption[]>([
     {
-      url: `${API_PROXY_BASE_URL}/user/devices/number/buttons`,
+      url: appendCacheBust(`${API_PROXY_BASE_URL}/user/devices/number/buttons`),
       init: { method: 'GET', headers: buildJsonHeaders(token), credentials: 'include' },
     },
   ]);
@@ -940,7 +996,7 @@ export const fetchDeviceTariff = async (_userId: number, deviceNumber: number): 
   const query = `device_number=${encodeURIComponent(deviceNumber)}`;
   return fetchJsonWithFallbacks<DeviceTariffResponse>([
     {
-      url: `${API_PROXY_BASE_URL}/user/devices/number/tariff?${query}`,
+      url: appendCacheBust(`${API_PROXY_BASE_URL}/user/devices/number/tariff?${query}`),
       init: { method: 'GET', headers: buildJsonHeaders(token), credentials: 'include' },
     },
   ]);
@@ -1186,19 +1242,93 @@ export const fetchReferredUsers = async (): Promise<ReferredUser[]> => {
     throw new Error('User token not found');
   }
 
-  const headers = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    ...buildAuthHeaders(token),
+  const cacheKey = 'referred_users';
+  const fromCache = (currentToken: string): ReferredUser[] | null => {
+    const { data, meta } = cacheGetWithMeta<ReferredUser[]>(cacheKey, CACHE_TTL.user);
+    if (Array.isArray(data) && typeof meta.token === 'string' && meta.token === currentToken) {
+      return data;
+    }
+    return null;
   };
 
-  const data = await fetchJsonWithFallbacks<unknown>([
-    {
-      url: API_PROXY_BASE_URL + '/user/referred',
-      init: { method: 'GET', headers, credentials: 'include' },
-    },
-  ]);
-  return normalizeReferredUsers(data);
+  const requestWithToken = async (currentToken: string): Promise<ReferredUser[]> => {
+    const headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...buildAuthHeaders(currentToken),
+    };
+    const basePath = `${API_PROXY_BASE_URL}/user/referred`;
+    const attempts = [
+      `${basePath}?page_number=0`,
+      `${basePath}/?page_number=0`,
+      `${basePath}?token=${encodeURIComponent(currentToken)}&page_number=0`,
+      `${basePath}/?token=${encodeURIComponent(currentToken)}&page_number=0`,
+    ];
+
+    let lastStatus: number | null = null;
+    let lastError: Error | null = null;
+
+    for (const url of attempts) {
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+          credentials: 'include',
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          lastStatus = response.status;
+          if ([401, 403].includes(response.status)) {
+            lastError = new Error(`Auth error: ${response.status}`);
+            continue;
+          }
+          if (response.status === 429) {
+            lastError = new Error('Server error: 429');
+            break;
+          }
+          if (response.status === 422) {
+            const error: ApiError = await response.json().catch(() => ({ detail: [] } as ApiError));
+            lastError = new Error(error.detail?.[0]?.msg || 'Validation error');
+            continue;
+          }
+          lastError = new Error(`Server error: ${response.status}`);
+          continue;
+        }
+
+        const data = await response.json().catch(() => ([] as unknown));
+        const normalized = normalizeReferredUsers(data);
+        cacheSet(cacheKey, normalized, { token: currentToken });
+        return normalized;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Network error');
+      }
+    }
+
+    const authError = lastStatus === 401 || lastStatus === 403;
+    if (!authError && (lastStatus === null || lastStatus === 404 || lastStatus === 429 || lastStatus >= 500)) {
+      const cached = fromCache(currentToken);
+      if (cached) return cached;
+    }
+
+    throw lastError || new Error(`Server error: ${lastStatus ?? 'unknown'}`);
+  };
+
+  try {
+    return await requestWithToken(token);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    const authError = /401|403|auth|token/i.test(message);
+    if (authError) {
+      const recovered = await recoverUserTokenFromAuth();
+      if (recovered) {
+        return requestWithToken(recovered);
+      }
+    }
+    const cached = fromCache(token);
+    if (cached) return cached;
+    throw error instanceof Error ? error : new Error('Failed to load referrals');
+  }
 };
 
 
@@ -1289,9 +1419,14 @@ export const fetchUserInfoByToken = async (token: string): Promise<UserInfo> => 
 
     if (!response.ok) {
       lastStatus = response.status;
-      if ([401, 403, 404].includes(response.status)) {
+      if ([401, 403].includes(response.status)) {
         lastError = new Error('Недействительный токен. Пожалуйста, войдите снова');
         continue;
+      }
+
+      if (response.status === 429) {
+        lastError = new Error('Ошибка сервера: 429');
+        break;
       }
 
       if (response.status === 422) {
@@ -1314,7 +1449,7 @@ export const fetchUserInfoByToken = async (token: string): Promise<UserInfo> => 
       lastError.message.includes('Недействительный токен') ||
       lastError.message.includes('401') ||
       lastError.message.includes('403');
-    if (!isAuthError && (lastStatus === null || lastStatus >= 500)) {
+    if (!isAuthError && (lastStatus === null || lastStatus === 404 || lastStatus === 429 || lastStatus >= 500)) {
       const { data, meta } = cacheGetWithMeta<UserInfo>('user', CACHE_TTL.user);
       if (data && typeof meta.token === 'string' && meta.token === token) {
         return data;

@@ -108,8 +108,9 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
         const data = await fetchAvailableLocations(
           user.id,
           language,
-          user?.currency?.code || currency.code,
-          user?.currency?.code
+          currency.code,
+          user?.currency?.code,
+          true
         );
         if (mounted) {
           const filtered = Array.isArray(data) ? data.filter((loc) => !loc.hidden) : [];

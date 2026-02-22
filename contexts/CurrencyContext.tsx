@@ -21,7 +21,8 @@ const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined
 const STORAGE_KEY = 'currency_code';
 const PENDING_KEY = 'currency_pending_code';
 const PENDING_TS_KEY = 'currency_pending_ts';
-const PENDING_TTL_MS = 10 * 60 * 1000;
+const PENDING_TTL_MS = 90 * 1000;
+const PENDING_GRACE_MS = 12 * 1000;
 const waitMs = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 const DEFAULT_CURRENCIES: Currency[] = [
@@ -84,11 +85,7 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [currencyRefreshId, setCurrencyRefreshId] = useState(0);
-  const refreshUserRef = useRef(refreshUser);
-
-  useEffect(() => {
-    refreshUserRef.current = refreshUser;
-  }, [refreshUser]);
+  const setCurrencyInFlightRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -131,10 +128,19 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
     if (typeof window !== 'undefined') {
       const pending = localStorage.getItem(PENDING_KEY);
       const pendingTs = Number(localStorage.getItem(PENDING_TS_KEY) || 0);
+      const pendingAge = pendingTs ? Date.now() - pendingTs : Infinity;
       const pendingFresh =
-        !!pending && !!pendingTs && Date.now() - pendingTs < PENDING_TTL_MS;
+        !!pending && !!pendingTs && pendingAge < PENDING_TTL_MS;
       if (pendingFresh && pending !== user.currency.code) {
-        return;
+        // Keep optimistic state only shortly after local switch.
+        if (pendingAge <= PENDING_GRACE_MS) {
+          return;
+        }
+        localStorage.removeItem(PENDING_KEY);
+        localStorage.removeItem(PENDING_TS_KEY);
+      } else if (pending && pending !== user.currency.code) {
+        localStorage.removeItem(PENDING_KEY);
+        localStorage.removeItem(PENDING_TS_KEY);
       }
       if (pending === user.currency.code) {
         localStorage.removeItem(PENDING_KEY);
@@ -147,48 +153,37 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
   }, [user?.currency?.code]);
 
   useEffect(() => {
+    if (!isHydrated || typeof window === 'undefined') return;
+    const pending = localStorage.getItem(PENDING_KEY);
+    const pendingTs = Number(localStorage.getItem(PENDING_TS_KEY) || 0);
+    const pendingFresh =
+      !!pending && !!pendingTs && Date.now() - pendingTs < PENDING_TTL_MS;
+    if (!pendingFresh) {
+      localStorage.removeItem(PENDING_KEY);
+      localStorage.removeItem(PENDING_TS_KEY);
+    }
+  }, [isHydrated]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     const pending = localStorage.getItem(PENDING_KEY);
     const pendingTs = Number(localStorage.getItem(PENDING_TS_KEY) || 0);
     const pendingFresh =
       !!pending && !!pendingTs && Date.now() - pendingTs < PENDING_TTL_MS;
-
-    if (!pendingFresh) {
+    if (!pendingFresh || !pending || !user?.currency?.code || pending === user.currency.code) {
       return;
     }
 
-    if (!user?.currency?.code || pending === user.currency.code) {
-      return;
-    }
+    const timer = window.setTimeout(() => {
+      refreshUser({ silent: true }).catch(() => {
+        // leave current UI as is; pending sync will resolve on next natural refresh
+      });
+    }, 1200);
 
-    let cancelled = false;
-    const syncCurrency = async () => {
-      const maxAttempts = 4;
-      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        if (cancelled) return;
-        await waitMs(700 + attempt * 250);
-        if (cancelled) return;
-
-        const latestPending = localStorage.getItem(PENDING_KEY);
-        const latestPendingTs = Number(localStorage.getItem(PENDING_TS_KEY) || 0);
-        const latestPendingFresh =
-          !!latestPending && !!latestPendingTs && Date.now() - latestPendingTs < PENDING_TTL_MS;
-
-        if (!latestPendingFresh) return;
-
-        try {
-          await refreshUserRef.current({ silent: true });
-        } catch {
-          // keep retrying while pending window is fresh
-        }
-      }
-    };
-
-    syncCurrency();
     return () => {
-      cancelled = true;
+      window.clearTimeout(timer);
     };
-  }, [user?.currency?.code]);
+  }, [user?.currency?.code, refreshUser]);
 
   useEffect(() => {
     if (!isHydrated || typeof window === 'undefined') return;
@@ -253,56 +248,89 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const setCurrencyCode = async (code: string) => {
-    if (code === selectedCode && user?.currency?.code === code) return;
-    const nextCurrency = findCurrency(currencies, code);
-    const nextCurrencyId = nextCurrency?.id ?? null;
-    const fallbackCode = user?.currency?.code || selectedCode;
-
-    if (!user?.id) {
-      setSelectedCode(code);
-      setCurrencyRefreshId((prev) => prev + 1);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_KEY, code);
-        localStorage.removeItem(PENDING_KEY);
-        localStorage.removeItem(PENDING_TS_KEY);
-        clearCurrencySensitiveCache();
-        window.location.reload();
-      }
-      return;
+    const nextCode = String(code || '').trim().toUpperCase();
+    if (!nextCode) return;
+    if (nextCode === selectedCode && user?.currency?.code === nextCode) return;
+    if (setCurrencyInFlightRef.current) {
+      return setCurrencyInFlightRef.current;
     }
 
-    try {
-      await setUserCurrency(user.id, code, nextCurrencyId);
+    const run = (async () => {
+      const nextCurrency = findCurrency(currencies, nextCode);
+      const nextCurrencyId = nextCurrency?.id ?? null;
+      const fallbackCode = user?.currency?.code || selectedCode;
+      const userId = user?.id ?? null;
+      const applyServerCurrency = async () => {
+        if (!userId) return;
+        try {
+          await setUserCurrency(userId, nextCode, nextCurrencyId);
+          return;
+        } catch (firstError) {
+          const message = firstError instanceof Error ? firstError.message : '';
+          const authError = /401|403|token|auth/i.test(message);
+          if (!authError) {
+            throw firstError;
+          }
+          try {
+            const recoveredToken = await recoverUserTokenFromAuth();
+            if (!recoveredToken) {
+              throw firstError;
+            }
+            await setUserCurrency(userId, nextCode, nextCurrencyId);
+            return;
+          } catch {
+            throw firstError;
+          }
+        }
+      };
+
+      if (!userId) {
+        setSelectedCode(nextCode);
+        setCurrencyRefreshId((prev) => prev + 1);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEY, nextCode);
+          localStorage.removeItem(PENDING_KEY);
+          localStorage.removeItem(PENDING_TS_KEY);
+          clearCurrencySensitiveCache();
+          window.location.reload();
+        }
+        return;
+      }
+
       try {
-        await recoverUserTokenFromAuth();
+        await applyServerCurrency();
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(PENDING_KEY, nextCode);
+          localStorage.setItem(PENDING_TS_KEY, String(Date.now()));
+          localStorage.setItem(STORAGE_KEY, nextCode);
+        }
+        setSelectedCode(nextCode);
+        setCurrencyRefreshId((prev) => prev + 1);
+        if (typeof window !== 'undefined') {
+          clearCurrencySensitiveCache();
+          await waitMs(220);
+          window.location.reload();
+        }
       } catch {
-        // Keep the current token if reissue is not available.
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEY, fallbackCode);
+          localStorage.removeItem(PENDING_KEY);
+          localStorage.removeItem(PENDING_TS_KEY);
+        }
+        setSelectedCode(fallbackCode);
+        setCurrencyRefreshId((prev) => prev + 1);
+        try {
+          await refreshUser({ silent: true });
+        } catch {
+          // keep current state
+        }
       }
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(PENDING_KEY, code);
-        localStorage.setItem(PENDING_TS_KEY, String(Date.now()));
-        localStorage.setItem(STORAGE_KEY, code);
-      }
-      setSelectedCode(code);
-      setCurrencyRefreshId((prev) => prev + 1);
-      if (typeof window !== 'undefined') {
-        clearCurrencySensitiveCache();
-        window.location.reload();
-      }
-    } catch {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_KEY, fallbackCode);
-        localStorage.removeItem(PENDING_KEY);
-        localStorage.removeItem(PENDING_TS_KEY);
-      }
-      setSelectedCode(fallbackCode);
-      setCurrencyRefreshId((prev) => prev + 1);
-      try {
-        await refreshUser({ silent: true });
-      } catch {
-        // keep current state
-      }
-    }
+    })();
+
+    setCurrencyInFlightRef.current = run.finally(() => {
+      setCurrencyInFlightRef.current = null;
+    });
+    return setCurrencyInFlightRef.current;
   };
 
   return (

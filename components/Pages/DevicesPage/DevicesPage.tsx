@@ -11,7 +11,6 @@ interface DevicesPageProps {
 }
 
 const FALLBACK_PLAN_NUMBERS = [2, 3, 5, 10];
-const waitMs = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 type PriceValue = {
   amount: number;
@@ -110,32 +109,43 @@ const parsePriceFromButtonText = (text?: string | null): PriceValue | null => {
   if (!normalized) return null;
   const detectedCode = detectCurrencyCode(normalized);
 
-  const suffixCode = normalized.match(/(-?[\d\s.,]+)\s*(RUB|USD|AMD|TG_STARS)\b/i);
+  const segment = normalized.match(/\(([^)]*)\)/)?.[1] || normalized;
+
+  const suffixCode = segment.match(/(-?[\d\s.,]+)\s*(RUB|USD|AMD|TG_STARS)\b/i);
   if (suffixCode?.[1]) {
     const parsed = parseLocalizedNumber(suffixCode[1]);
     if (parsed == null) return null;
     return { amount: parsed, code: suffixCode[2]?.toUpperCase() || detectedCode };
   }
 
-  const prefixCode = normalized.match(/\b(RUB|USD|AMD|TG_STARS)\s*(-?[\d\s.,]+)/i);
+  const prefixCode = segment.match(/\b(RUB|USD|AMD|TG_STARS)\s*(-?[\d\s.,]+)/i);
   if (prefixCode?.[2]) {
     const parsed = parseLocalizedNumber(prefixCode[2]);
     if (parsed == null) return null;
     return { amount: parsed, code: prefixCode[1]?.toUpperCase() || detectedCode };
   }
 
-  const suffixSymbol = normalized.match(/(-?[\d\s.,]+)\s*([\u20BD$\u058F])/);
+  const suffixSymbol = segment.match(/(-?[\d\s.,]+)\s*([\u20BD$\u058F])/);
   if (suffixSymbol?.[1]) {
     const parsed = parseLocalizedNumber(suffixSymbol[1]);
     if (parsed == null) return null;
     return { amount: parsed, code: detectedCode };
   }
 
-  const prefixSymbol = normalized.match(/([\u20BD$\u058F])\s*(-?[\d\s.,]+)/);
+  const prefixSymbol = segment.match(/([\u20BD$\u058F])\s*(-?[\d\s.,]+)/);
   if (prefixSymbol?.[2]) {
     const parsed = parseLocalizedNumber(prefixSymbol[2]);
     if (parsed == null) return null;
     return { amount: parsed, code: detectedCode };
+  }
+
+  // Some payloads omit explicit currency in brackets: "10 устройств (689/мес)".
+  const plainNumber = segment.match(/-?[\d\s.,]+/);
+  if (plainNumber?.[0]) {
+    const parsed = parseLocalizedNumber(plainNumber[0]);
+    if (parsed != null) {
+      return { amount: parsed, code: detectedCode };
+    }
   }
 
   return null;
@@ -272,12 +282,10 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
     maybeAdd(selectedDeviceNumber);
     maybeAdd(user?.device_number);
     sortedPlans.forEach((plan) => {
-      if (!planPrices[plan.device_number]) {
-        maybeAdd(plan.device_number);
-      }
+      maybeAdd(plan.device_number);
     });
     return Array.from(targets);
-  }, [sortedPlans, planPrices, selectedDeviceNumber, user?.device_number]);
+  }, [sortedPlans, selectedDeviceNumber, user?.device_number]);
 
   useEffect(() => {
     setTariffs({});
@@ -299,45 +307,21 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
     let mounted = true;
     const loadPlans = async () => {
       if (!user?.id) return;
-      const expectedCode = user?.currency?.code || currency.code;
-      const maxAttempts = 5;
-      let data: DeviceButtonOption[] = [];
-      let loaded = false;
-      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        try {
-          const fetched = await fetchDeviceButtons(user.id);
-          data = Array.isArray(fetched) ? fetched : [];
-          const planCodes = data
-            .map((item) => detectCurrencyCode(item.text))
-            .filter((code): code is string => !!code);
-          const codeCounts = new Map<string, number>();
-          planCodes.forEach((code) => {
-            codeCounts.set(code, (codeCounts.get(code) || 0) + 1);
-          });
-          const dominantCode =
-            Array.from(codeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || undefined;
-          loaded = true;
-          if (!dominantCode || dominantCode === expectedCode || attempt === maxAttempts - 1) {
-            break;
-          }
-        } catch {
-          loaded = false;
-          break;
-        }
-        await waitMs(260 + attempt * 220);
-      }
-      if (!mounted) return;
-      if (!loaded) {
+      try {
+        const fetched = await fetchDeviceButtons(user.id);
+        if (!mounted) return;
+        const data = Array.isArray(fetched) ? fetched : [];
+        setPlans(data);
+        const selected =
+          data.find((item) => item.selected)?.device_number ||
+          user.device_number ||
+          FALLBACK_PLAN_NUMBERS[0];
+        setSelectedDeviceNumber(selected);
+      } catch {
+        if (!mounted) return;
         setPlans([]);
         setSelectedDeviceNumber(user?.device_number || FALLBACK_PLAN_NUMBERS[0]);
-        return;
       }
-      setPlans(data);
-      const selected =
-        data.find((item) => item.selected)?.device_number ||
-        user.device_number ||
-        FALLBACK_PLAN_NUMBERS[0];
-      setSelectedDeviceNumber(selected);
     };
     loadPlans();
     return () => {
@@ -407,14 +391,17 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
   const getDisplayedMonthlyPrice = (deviceNumber: number | null | undefined): PriceValue | null => {
     if (!deviceNumber) return null;
     const fromButtons = planPrices[deviceNumber];
-    if (fromButtons && Number.isFinite(fromButtons.amount)) {
+    if (
+      fromButtons &&
+      Number.isFinite(fromButtons.amount) &&
+      (!fromButtons.code || fromButtons.code === activeServerCurrencyCode)
+    ) {
       return { amount: fromButtons.amount, code: fromButtons.code || activeServerCurrencyCode };
     }
     const fromTariff = tariffs[deviceNumber]?.tariff_per_month;
     if (typeof fromTariff === 'number' && Number.isFinite(fromTariff)) {
       return { amount: fromTariff, code: activeServerCurrencyCode };
     }
-    if (fromButtons && Number.isFinite(fromButtons.amount)) return fromButtons;
     return null;
   };
 

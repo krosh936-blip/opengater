@@ -1,4 +1,5 @@
 .invite-page {
+  width: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -21,7 +22,7 @@
 }
 
 .invite-mobile-header {
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 32px;
@@ -29,8 +30,8 @@
 }
 
 .invite-page .back-button {
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
   background: transparent;
   border: none;
   display: flex;
@@ -49,16 +50,13 @@
 
 .invite-page .header-spacer {
   width: 40px;
+  height: 40px;
 }
 
 .invite-page .hero-section {
   text-align: center;
   margin-bottom: 32px;
-  animation: none;
-  border: none !important;
-  background: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
+  animation: inviteFadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .invite-page .hero-icon {
@@ -67,13 +65,11 @@
   margin: 0 auto 24px;
   background: linear-gradient(135deg, rgba(0, 122, 255, 0.1), rgba(52, 199, 89, 0.1));
   backdrop-filter: blur(10px);
-  border: none !important;
-  box-shadow: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
 }
 
 .invite-page .hero-icon svg {
@@ -83,51 +79,56 @@
 }
 
 .invite-page .hero-title {
+  margin: 0 0 12px;
   font-size: 28px;
   font-weight: 700;
-  margin-bottom: 12px;
   background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .invite-page .hero-subtitle {
+  margin: 0;
   font-size: 14px;
   color: var(--text-secondary);
   line-height: 1.5;
   padding: 0 40px;
 }
 
-.invite-page .earnings-block {
+.invite-page .invite-card {
   background: rgba(26, 26, 29, 0.6);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  animation: inviteFadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+[data-theme="light"] .invite-page .invite-card,
+.light-theme .invite-page .invite-card {
+  background: var(--bg-card);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.invite-page .summary-card {
   border-radius: 24px;
   padding: 22px 24px;
   margin-bottom: 17px;
-  animation: none;
 }
 
-[data-theme="light"] .invite-page .earnings-block {
-  background: rgba(0, 0, 0, 0.02);
-  backdrop-filter: none;
-}
-
-.invite-page .earnings-header {
+.invite-page .summary-label {
   font-size: 13px;
   color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
-.invite-page .earnings-amount {
+.invite-page .summary-amount {
   font-size: 32px;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 8px;
-  animation: none;
 }
 
-.invite-page .progress-bar {
+.invite-page .summary-progress {
   width: 100%;
   height: 8px;
   background: rgba(42, 42, 45, 0.5);
@@ -136,28 +137,26 @@
   margin-bottom: 8px;
 }
 
-[data-theme="light"] .invite-page .progress-bar {
+[data-theme="light"] .invite-page .summary-progress,
+.light-theme .invite-page .summary-progress {
   background: var(--progress-bg);
 }
 
-.invite-page .progress-fill {
+.invite-page .summary-progress-fill {
   height: 100%;
   background: var(--progress-fill);
   border-radius: 4px;
   transition: width 0.3s ease;
 }
 
-.invite-page .referral-stats {
-  margin-bottom: 0;
-}
-
-.invite-page .stats-row {
+.invite-page .summary-meta {
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
-.invite-page .stat-item {
+.invite-page .summary-meta-item {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -165,65 +164,59 @@
   color: var(--text-secondary);
 }
 
-.invite-page .stat-dot {
+.invite-page .summary-meta-item strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.invite-page .summary-meta-item + .summary-meta-item::before {
+  content: '';
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--text-secondary);
+  background: currentColor;
+  margin-right: 4px;
 }
 
-.invite-page .stat-dot.connected {
-  background: var(--text-primary);
-}
-
-.invite-page .stat-value {
-  color: var(--text-primary);
-  font-weight: 500;
-  animation: none;
-}
-
-.invite-page .code-section {
-  background: rgba(26, 26, 29, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+.invite-page .link-card {
   border-radius: 20px;
   padding: 22px 24px;
   margin-bottom: 20px;
-  animation: none;
 }
 
-[data-theme="light"] .invite-page .code-section {
-  background: rgba(0, 0, 0, 0.02);
-  backdrop-filter: none;
-}
-
-.invite-page .code-label {
+.invite-page .link-card-title {
   font-size: 13px;
   color: var(--text-secondary);
   margin-bottom: 13px;
 }
 
-.invite-page .code-display {
+.invite-page .link-field {
   font-size: 12px;
   font-weight: 500;
-  margin-bottom: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-height: 36px;
-  background: transparent;
-  backdrop-filter: none;
+  background: rgba(42, 42, 45, 0.5);
+  backdrop-filter: blur(10px);
   border-radius: 12px;
   padding: 13px 12px;
   gap: 8px;
 }
 
-[data-theme="light"] .invite-page .code-display {
-  background: transparent;
+[data-theme="light"] .invite-page .link-field,
+.light-theme .invite-page .link-field {
+  background: var(--bg-primary);
+  backdrop-filter: none;
+}
+
+.invite-page .link-card-share .link-field {
+  margin-bottom: 16px;
 }
 
 .invite-page .link-text {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -231,32 +224,28 @@
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
 }
 
-.invite-page .loading-spinner {
-  display: inline-block;
+.invite-page .copy-link-btn {
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-top-color: var(--text-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-[data-theme="light"] .invite-page .loading-spinner {
-  border: 2px solid rgba(0, 0, 0, 0.1);
-  border-top-color: var(--text-primary);
-}
-
-.invite-page .copy-icon {
-  width: 20px;
-  height: 20px;
+  border: none;
+  background: transparent;
   cursor: pointer;
   color: var(--text-secondary);
   transition: color 0.2s;
   flex-shrink: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.invite-page .copy-icon:hover {
-  color: var(--text-secondary);
+.invite-page .copy-link-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.invite-page .copy-link-btn:hover {
+  color: var(--text-primary);
 }
 
 .invite-page .share-button {
@@ -269,7 +258,7 @@
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -280,25 +269,30 @@
   transform: scale(0.98);
 }
 
-.invite-page .referrals-section {
-  margin-bottom: 32px;
-  animation: none;
+.invite-page .share-button svg {
+  width: 18px;
+  height: 18px;
 }
 
-.invite-page .section-header {
+.invite-page .referrals-section {
+  margin-bottom: 32px;
+  animation: inviteFadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.invite-page .referrals-section-header {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 20px;
-  animation: none;
 }
 
-.invite-page .section-title {
+.invite-page .referrals-section-title {
+  margin: 0;
   font-size: 18px;
   font-weight: 600;
 }
 
-.invite-page .count-badge {
+.invite-page .referrals-count {
   background: rgba(20, 20, 22, 0.6);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -306,39 +300,34 @@
   border-radius: 12px;
   font-size: 14px;
   font-weight: 600;
+  line-height: 1;
 }
 
-[data-theme="light"] .invite-page .count-badge,
-.light-theme .invite-page .count-badge {
-  background: rgba(0, 0, 0, 0.04);
-  backdrop-filter: none;
+[data-theme="light"] .invite-page .referrals-count,
+.light-theme .invite-page .referrals-count {
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
+  backdrop-filter: none;
 }
 
 .invite-page .referrals-card {
-  background: rgba(26, 26, 29, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border-radius: 24px;
   padding: 0 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: none;
-  border: none;
-  box-shadow: none;
-  transition: none;
 }
 
 [data-theme="light"] .invite-page .referrals-card,
 .light-theme .invite-page .referrals-card {
-  background: rgba(0, 0, 0, 0.02);
-  backdrop-filter: none;
-  border: none;
-  box-shadow: none;
+  border: 1px solid var(--border);
 }
 
-.invite-page .empty-state {
+.invite-page .referrals-list {
+  width: 100%;
+}
+
+.invite-page .referrals-empty {
   text-align: center;
   color: var(--text-muted);
   font-size: 16px;
@@ -346,49 +335,39 @@
   padding: 40px 20px;
 }
 
-.invite-page .referrals-list {
-  width: 100%;
-  padding: 0;
-}
-
 .invite-page .referral-item {
   display: flex;
   align-items: center;
   padding: 16px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  animation: none;
+  cursor: default;
 }
 
-.invite-page .referral-item:hover {
-  background: transparent;
-  margin: 0;
-  padding: 16px 0;
-  box-shadow: none;
-  transform: none;
+[data-theme="light"] .invite-page .referral-item,
+.light-theme .invite-page .referral-item {
+  border-bottom: 1px solid var(--border);
 }
 
 .invite-page .referral-item:last-child {
   border-bottom: none;
 }
 
-[data-theme="light"] .invite-page .referral-item {
-  border-bottom: 1px solid var(--border);
-}
-
 .invite-page .referral-avatar {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  margin-right: 16px;
+  flex-shrink: 0;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+  color: #ffffff;
   font-weight: 600;
-  margin-right: 16px;
-  color: #fff;
+  font-size: 16px;
 }
 
-.invite-page .referral-info {
+.invite-page .referral-main {
   flex: 1;
   min-width: 0;
 }
@@ -408,13 +387,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 150px;
 }
 
-.invite-page .referral-status {
+.invite-page .referral-side {
   text-align: right;
+  flex-shrink: 0;
 }
 
-.invite-page .status-badge {
+.invite-page .referral-status-badge {
   display: inline-block;
   padding: 4px 12px;
   border-radius: 12px;
@@ -423,14 +404,19 @@
   margin-bottom: 4px;
 }
 
-.invite-page .status-badge.active {
+.invite-page .referral-status-badge.active {
   background: rgba(16, 185, 129, 0.2);
   color: var(--success);
 }
 
-.invite-page .status-badge.pending {
+.invite-page .referral-status-badge.pending {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-muted);
+}
+
+[data-theme="light"] .invite-page .referral-status-badge.pending,
+.light-theme .invite-page .referral-status-badge.pending {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .invite-page .referral-amount {
@@ -439,38 +425,49 @@
   color: var(--success);
 }
 
-.invite-page .toast {
-  position: fixed;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--bg-card);
-  padding: 12px 20px;
-  border-radius: 100px;
-  font-size: 14px;
-  font-weight: 500;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  animation: slideUp 0.3s ease;
-  z-index: 9999;
+.invite-page .loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--text-primary);
+  border-radius: 50%;
+  animation: inviteSpin 0.8s linear infinite;
 }
 
-[data-theme="light"] .invite-page .toast {
+[data-theme="light"] .invite-page .loading-spinner,
+.light-theme .invite-page .loading-spinner {
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: var(--text-primary);
+}
+
+.invite-page .toast {
+  position: fixed;
+  left: 50%;
+  bottom: 80px;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-size: 14px;
+  animation: inviteSlideUp 0.3s ease-out;
+}
+
+[data-theme="light"] .invite-page .toast,
+.light-theme .invite-page .toast {
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
+@keyframes inviteSpin {
   to {
-    opacity: 1;
-    transform: translateY(0);
+    transform: rotate(360deg);
   }
 }
 
-@keyframes fadeInUp {
+@keyframes inviteFadeInUp {
   from {
     opacity: 0;
     transform: translateY(20px);
@@ -481,35 +478,39 @@
   }
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes slideUp {
+@keyframes inviteSlideUp {
   from {
     opacity: 0;
-    transform: translate(-50%, 10px);
+    transform: translateX(-50%) translateY(20px);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translateX(-50%) translateY(0);
   }
 }
 
-@media (max-width: 768px) {
+@media (min-width: 768px) {
   .invite-mobile-header {
-    display: flex;
+    display: none;
   }
-}
 
-@media (max-width: 480px) {
   .invite-page .hero-title {
-    font-size: 24px;
+    font-size: 36px;
   }
 
   .invite-page .hero-subtitle {
-    padding: 0 20px;
+    padding: 0 80px;
+  }
+
+  .invite-page .summary-amount {
+    font-size: 40px;
+  }
+}
+
+@media (max-width: 767px) {
+  .invite-page .toast {
+    bottom: calc(80px + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 24px);
+    text-align: center;
   }
 }

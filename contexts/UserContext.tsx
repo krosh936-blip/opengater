@@ -1,5 +1,5 @@
 ﻿'use client'
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { UserInfo, fetchUserInfo, getUserToken, removeUserToken, calculateDaysRemaining, recoverUserTokenFromAuth } from '@/lib/api';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -16,6 +16,13 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+const extractHttpStatus = (message: string): number | null => {
+  const match = message.match(/\b(401|403|404|409|422|429|5\d{2})\b/);
+  if (!match) return null;
+  const status = Number(match[1]);
+  return Number.isFinite(status) ? status : null;
+};
+
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -25,7 +32,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { applyLanguageFromServer } = useLanguage();
 
-  const loadUser = async (options?: { silent?: boolean }) => {
+  const loadUser = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent === true;
     try {
       if (!silent) {
@@ -80,15 +87,17 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       if (!silent) {
         setError(message);
       }
+      const status = extractHttpStatus(message);
       const isAuthError =
         message.includes('РќРµРґРµР№СЃС‚РІРёС‚РµР»СЊРЅС‹Р№ С‚РѕРєРµРЅ') ||
-        message.includes('401') ||
-        message.includes('403');
+        status === 401 ||
+        status === 403;
+      const isRateLimitError =
+        status === 429 ||
+        /too many requests|СЃР»РёС€РєРѕРј РјРЅРѕРіРѕ Р·Р°РїСЂРѕСЃРѕРІ/i.test(message);
       const isServerError =
-        message.includes('Ошибка сервера: 5') ||
-        message.includes('502') ||
-        message.includes('503') ||
-        message.includes('504');
+        status != null && status >= 500 && status <= 599;
+      const hasToken = !!getUserToken();
       if (isAuthError) {
         try {
           const recovered = await recoverUserTokenFromAuth();
@@ -106,28 +115,30 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           // Если восстановить токен не удалось — падаем дальше и выходим на логин.
         }
       }
-      if (isAuthError || isServerError) {
+      if (isAuthError) {
         removeUserToken();
         setIsAuthenticated(false);
         setUser(null);
         if (typeof window !== 'undefined' && pathname && !pathname.startsWith('/auth')) {
           router.replace('/auth/login');
         }
-      } else if (!silent) {
-        // При 5xx оставляем пользователя авторизованным, чтобы не блокировать UI.
-        setIsAuthenticated(true);
+        return;
+      }
+      if (isRateLimitError || isServerError || hasToken) {
+        // На 429/5xx не выкидываем из сессии: это временная ошибка.
+        setIsAuthenticated(hasToken);
       }
     } finally {
       if (!silent) {
         setIsLoading(false);
       }
     }
-  };
+  }, [applyLanguageFromServer, pathname, router]);
 
-  const refreshUser = async (options?: { silent?: boolean }) => {
+  const refreshUser = useCallback(async (options?: { silent?: boolean }) => {
     // Silent-режим не показывает спиннер, чтобы избежать мигания UI.
     await loadUser(options);
-  };
+  }, [loadUser]);
 
   const logout = () => {
     removeUserToken();
@@ -138,7 +149,45 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     loadUser();
-  }, []);
+  }, [loadUser]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let inFlight = false;
+
+    const refreshSilently = () => {
+      if (inFlight) return;
+      if (!getUserToken()) return;
+      inFlight = true;
+      loadUser({ silent: true }).finally(() => {
+        inFlight = false;
+      });
+    };
+
+    const handleFocus = () => {
+      refreshSilently();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshSilently();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        refreshSilently();
+      }
+    }, 45 * 1000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.clearInterval(interval);
+    };
+  }, [loadUser, user?.id]);
 
   const daysRemaining = user ? calculateDaysRemaining(user.expire) : '';
 

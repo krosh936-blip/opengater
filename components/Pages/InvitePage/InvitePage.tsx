@@ -59,9 +59,7 @@ export default function InvitePage({ onBack }: InvitePageProps) {
         if (!mounted) return;
         setReferredUsers(Array.isArray(data) ? data : []);
       } catch {
-        if (mounted) {
-          setReferredUsers([]);
-        }
+        // Preserve last successful data on transient failures (rate limit / upstream hiccups).
       } finally {
         if (mounted) {
           setIsLoadingReferrals(false);
@@ -80,7 +78,8 @@ export default function InvitePage({ onBack }: InvitePageProps) {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  const referralLink = user?.bot_referral_link || user?.web_referral_link || '';
+  const referralLink = user?.web_referral_link || user?.bot_referral_link || '';
+  const botLink = user?.bot_referral_link || '';
 
   const formatPrice = (price: number) => formatCurrency(price, { showCode: true, showSymbol: false });
   const displayPrice = (amount: number, fromCurrency?: ReferredUser['currency']) =>
@@ -94,10 +93,11 @@ export default function InvitePage({ onBack }: InvitePageProps) {
     return sum + convertAmount(value, u.currency || null);
   }, 0);
   const totalEarnedDisplay = formatCurrency(totalEarned, { showCode: true, showSymbol: false });
-  const progressPercent = invitedCount > 0 ? (connectedCount / invitedCount) * 100 : 0;
+  const progressPercent = invitedCount > 0 ? Math.min(100, Math.max(0, (connectedCount / invitedCount) * 100)) : 0;
 
-  const heroSubtitle = t('referral.hero_subtitle', { amount: formatPrice(50) });
-  const shareButtonText = isInTelegram ? t('referral.share_telegram') : t('referral.copy_link');
+  const bonusAmountRaw = Number(user?.referral_bonus_amount);
+  const referralBonus = Number.isFinite(bonusAmountRaw) && bonusAmountRaw > 0 ? bonusAmountRaw : 50;
+  const heroSubtitle = t('referral.hero_subtitle', { amount: formatPrice(referralBonus) });
 
   const showToast = (message: string) => {
     setToast(message);
@@ -118,13 +118,13 @@ export default function InvitePage({ onBack }: InvitePageProps) {
     document.body.removeChild(textarea);
   };
 
-  const handleCopy = async () => {
-    if (!referralLink) {
+  const handleCopy = async (link: string) => {
+    if (!link) {
       showToast(t('toast.link_loading'));
       return;
     }
     try {
-      await copyToClipboard(referralLink);
+      await copyToClipboard(link);
       showToast(t('toast.link_copied'));
     } catch {
       showToast(t('toast.link_loading'));
@@ -215,46 +215,32 @@ export default function InvitePage({ onBack }: InvitePageProps) {
         <p className="hero-subtitle">{heroSubtitle}</p>
       </div>
 
-      <div className="earnings-block">
-        <div className="earnings-header">{t('referral.total_earned')}</div>
-        <div className="earnings-amount">
-          {isLoadingReferrals ? '...' : totalEarnedDisplay}
+      <section className="invite-card summary-card">
+        <div className="summary-label">{t('referral.total_earned')}</div>
+        <div className="summary-amount">{isLoadingReferrals ? '...' : totalEarnedDisplay}</div>
+        <div className="summary-progress">
+          <div className="summary-progress-fill" style={{ width: `${progressPercent}%` }}></div>
         </div>
-        <div className="progress-bar">
-          <div className="progress-fill" style={{ width: `${progressPercent}%` }}></div>
-        </div>
-        <div className="referral-stats">
-          <div className="stats-row">
-            <div className="stat-item">
-              <span className="stat-dot invited"></span>
-              <span>
-                {t('referral.invited')} • <span className="stat-value">{isLoadingReferrals ? '...' : invitedCount}</span>
-              </span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-dot connected"></span>
-              <span>
-                {t('referral.connected')} • <span className="stat-value">{isLoadingReferrals ? '...' : connectedCount}</span>
-              </span>
-            </div>
+        <div className="summary-meta">
+          <div className="summary-meta-item">
+            {t('referral.invited')} <strong>{isLoadingReferrals ? '...' : invitedCount}</strong>
+          </div>
+          <div className="summary-meta-item">
+            {t('referral.connected')} <strong>{isLoadingReferrals ? '...' : connectedCount}</strong>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="code-section">
-        <div className="code-label">{t('referral.your_link')}</div>
-        <div className="code-display">
-          {isLoading ? (
-            <span className="loading-spinner"></span>
-          ) : referralLink ? (
-            <span className="link-text">{referralLink}</span>
-          ) : (
-            <span className="link-text">{t('referral.link_not_found')}</span>
-          )}
-          <svg className="copy-icon" onClick={handleCopy} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-          </svg>
+      <section className="invite-card link-card link-card-share">
+        <div className="link-card-title">{t('referral.your_link')}</div>
+        <div className="link-field">
+          {referralLink ? <span className="link-text">{referralLink}</span> : <span className="link-text">{t('referral.link_not_found')}</span>}
+          <button className="copy-link-btn" type="button" onClick={() => handleCopy(referralLink)} aria-label={t('common.copy')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
         </div>
         <button className="share-button" type="button" onClick={handleShare}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -264,49 +250,69 @@ export default function InvitePage({ onBack }: InvitePageProps) {
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
             <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
           </svg>
-          <span className="share-button-text">{shareButtonText}</span>
+          <span className="share-button-text">{t('referral.share_button')}</span>
         </button>
-      </div>
+      </section>
 
-      <div className="referrals-section">
-        <div className="section-header">
-          <h2 className="section-title">{t('referral.referrals_title')}</h2>
-          <span className="count-badge">{isLoadingReferrals ? '...' : invitedCount}</span>
+      <section className="invite-card link-card">
+        <div className="link-card-title">{t('referral.bot_link')}</div>
+        <div className="link-field">
+          {botLink ? <span className="link-text">{botLink}</span> : <span className="link-text">{t('referral.link_not_found')}</span>}
+          <button className="copy-link-btn" type="button" onClick={() => handleCopy(botLink)} aria-label={t('common.copy')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
         </div>
-        <div className="referrals-card">
+      </section>
+
+      <section className="referrals-section">
+        <div className="referrals-section-header">
+          <h2 className="referrals-section-title">{t('referral.referrals_title')}</h2>
+          <span className="referrals-count">{isLoadingReferrals ? '...' : invitedCount}</span>
+        </div>
+
+        <div className="invite-card referrals-card">
           {isLoadingReferrals ? (
-            <div className="empty-state">...</div>
+            <div className="referrals-empty">...</div>
           ) : referredUsers.length === 0 ? (
-            <div className="empty-state">{t('referral.no_referrals')}</div>
+            <div className="referrals-empty">{t('referral.no_referrals')}</div>
           ) : (
             <div className="referrals-list">
               {referredUsers.map((item, index) => {
-                const initials = item.full_name
-                  ? item.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
-                  : 'U';
+                const initials = (item.full_name || item.username || t('referral.user'))
+                  .split(' ')
+                  .map((part) => part.charAt(0))
+                  .join('')
+                  .toUpperCase()
+                  .slice(0, 2);
                 const isActive = item.connected === true;
+                const amount = Number(item.amount || 0);
+                const showAmount = isActive && Number.isFinite(amount) && amount > 0;
+                const displayName = item.full_name || (item.username ? `@${item.username}` : t('referral.user'));
+                const displayUsername = item.username ? `@${item.username}` : '';
+
                 return (
-                  <div className="referral-item" key={`${item.username || item.full_name || 'user'}-${index}`}>
+                  <article className="referral-item" key={`${item.username || item.full_name || 'user'}-${index}`}>
                     <div className="referral-avatar">{initials}</div>
-                    <div className="referral-info">
-                      <div className="referral-name">{item.full_name || t('referral.user')}</div>
-                      <div className="referral-username">{item.username ? `@${item.username}` : 'Telegram'}</div>
+                    <div className="referral-main">
+                      <div className="referral-name">{displayName}</div>
+                      {displayUsername ? <div className="referral-username">{displayUsername}</div> : null}
                     </div>
-                    <div className="referral-status">
-                      <div className={`status-badge ${isActive ? 'active' : 'pending'}`}>
+                    <div className="referral-side">
+                      <span className={`referral-status-badge ${isActive ? 'active' : 'pending'}`}>
                         {isActive ? t('referral.status_connected') : t('referral.status_invited')}
-                      </div>
-                      {isActive && item.amount ? (
-                        <div className="referral-amount">+{displayPrice(Number(item.amount), item.currency)}</div>
-                      ) : null}
+                      </span>
+                      {showAmount ? <div className="referral-amount">+{displayPrice(amount, item.currency)}</div> : null}
                     </div>
-                  </div>
+                  </article>
                 );
               })}
             </div>
           )}
         </div>
-      </div>
+      </section>
 
       {toast && <div className="toast">{toast}</div>}
     </div>
