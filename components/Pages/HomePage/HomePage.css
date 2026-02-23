@@ -160,8 +160,7 @@
 
 .promo-slider-track {
   display: flex;
-  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .promo-slider.dragging .promo-slider-track {
@@ -178,25 +177,6 @@
   min-height: 100px;
   position: relative;
   cursor: pointer;
-}
-
-.promo-slide-content,
-.promo-slide-icon,
-.promo-slide-stars {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
-.promo-slide.active .promo-slide-content {
-  animation: promoContentIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.promo-slide.active .promo-slide-icon {
-  animation: promoIconIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.promo-slide.active .promo-slide-stars {
-  animation: promoStarsIn 0.9s ease forwards;
 }
 
 .promo-slide-stars {
@@ -250,51 +230,6 @@
   display: flex;
   gap: 6px;
   z-index: 20;
-  align-items: center;
-}
-
-.promo-slider-indicator {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 6px;
-  width: 6px;
-  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
-  pointer-events: none;
-  will-change: transform;
-}
-
-.promo-slider-indicator-dot {
-  display: block;
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  animation: indicatorStretch 0.55s cubic-bezier(0.22, 1, 0.36, 1);
-  animation-fill-mode: both;
-  transform: scaleX(1);
-  transform-origin: center;
-  will-change: transform;
-}
-
-.promo-slider-indicator-dot.direction-forward {
-  transform-origin: left center;
-}
-
-.promo-slider-indicator-dot.direction-backward {
-  transform-origin: right center;
-}
-
-@keyframes indicatorStretch {
-  0% {
-    transform: scaleX(1);
-  }
-  45% {
-    transform: scaleX(3.1);
-  }
-  100% {
-    transform: scaleX(1);
-  }
 }
 
 .promo-slider-dot {
@@ -303,11 +238,13 @@
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.35);
   cursor: pointer;
-  transition: opacity 0.3s ease;
+  transition: all 0.3s;
 }
 
 .promo-slider-dot.active {
-  opacity: 0;
+  width: 20px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .section-header {
@@ -534,37 +471,6 @@
   }
 }
 
-@keyframes promoContentIn {
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes promoIconIn {
-  0% {
-    opacity: 0;
-    transform: translateY(6px) scale(0.92);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes promoStarsIn {
-  0% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
 @media (min-width: 768px) {
   .balance-amount {
     font-size: 40px;
@@ -620,8 +526,8 @@
 
 .light-theme .deposit-button,
 [data-theme="light"] .deposit-button {
-  background: #007AFF;
-  color: #FFFFFF;
+  background: var(--button-bg);
+  color: var(--button-text);
 }
 
 .light-theme .count-badge,
@@ -633,13 +539,13 @@
 
 .light-theme .install-button,
 [data-theme="light"] .install-button {
-  background: #007AFF;
-  color: #FFFFFF;
+  background: var(--button-bg);
+  color: var(--button-text);
 }
 
 .light-theme .install-button:hover,
 [data-theme="light"] .install-button:hover {
-  background: #0051D5;
+  background: var(--button-bg);
 }
 
 .light-theme .install-icon,

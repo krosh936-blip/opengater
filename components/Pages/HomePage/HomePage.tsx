@@ -4,7 +4,7 @@ import './HomePage.css';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUser } from '@/contexts/UserContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
-import { fetchAvailableLocations, LocationItem } from '@/lib/api'; // Добавляем импорт
+import { fetchAvailableLocations, LocationItem } from '@/lib/api';
 
 type HomePageProps = {
   onNavigate?: (page: 'home' | 'subscription' | 'invite' | 'raffle' | 'locations' | 'devices' | 'help' | 'install' | 'payment' | 'history') => void;
@@ -12,21 +12,17 @@ type HomePageProps = {
 
 export default function HomePage({ onNavigate }: HomePageProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [slideDirection, setSlideDirection] = useState<'forward' | 'backward'>('forward');
   const sliderRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const autoplayRef = useRef<NodeJS.Timeout>();
-  const prevSlideRef = useRef(0);
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const { currency, currencyRefreshId, formatCurrency, formatMoneyFrom } = useCurrency();
 
-  // Используем хук для получения данных пользователя
   const { user, isLoading, error, isAuthenticated } = useUser();
   const { language, t, languageRefreshId } = useLanguage();
 
   const touchStateRef = useRef({ startX: 0, currentX: 0, isDragging: false });
 
-  // Данные для промо-слайдера
   const promoSlides = [
     {
       id: 1,
@@ -96,18 +92,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
   }, [currentSlide, promoSlides.length]);
 
   useEffect(() => {
-    const total = promoSlides.length;
-    if (total < 2) return;
-    const prev = prevSlideRef.current;
-    if (prev === currentSlide) return;
-    const forward = (prev + 1) % total === currentSlide;
-    const backward = (prev - 1 + total) % total === currentSlide;
-    setSlideDirection(forward ? 'forward' : backward ? 'backward' : currentSlide > prev ? 'forward' : 'backward');
-    prevSlideRef.current = currentSlide;
-  }, [currentSlide, promoSlides.length]);
-
-  // Автопрокрутка слайдера
-  useEffect(() => {
     startAutoplay();
 
     return () => {
@@ -117,14 +101,12 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     };
   }, [promoSlides.length]);
 
-  // Обновление позиции слайдера (плавность задается в CSS)
   useEffect(() => {
     if (trackRef.current) {
       trackRef.current.style.transform = `translateX(-${currentSlide * 100}%)`;
     }
   }, [currentSlide]);
 
-  // Обработчики кликов
   const handleReferral = () => {
     if (onNavigate) {
       onNavigate('invite');
@@ -273,7 +255,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     return t('days.remaining', { count: diffDays });
   })();
 
-  // Ручное переключение слайдов
   const goToSlide = (index: number) => {
     const total = promoSlides.length;
     if (!total) return;
@@ -282,7 +263,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     startAutoplay();
   };
 
-  // Пауза автопрокрутки при наведении
   const handleMouseEnter = () => {
     if (autoplayRef.current) {
       clearInterval(autoplayRef.current);
@@ -332,7 +312,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     }
   };
 
-  // Если данные загружаются
   if (isLoading) {
     return (
       <div className="home-page">
@@ -344,7 +323,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     );
   }
 
-  // Если есть ошибка
   if (error && !user) {
     return (
       <div className="home-page">
@@ -356,7 +334,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     );
   }
 
-  // Если пользователь не авторизован
   if (!isAuthenticated && !isLoading) {
     return (
       <div className="home-page">
@@ -368,10 +345,8 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     );
   }
 
-  // Основной рендеринг с реальными данными
   return (
     <div className="home-page">
-      {/* ОБНОВЛЕННЫЙ БЛОК БАЛАНСА */}
       <div className="balance-block">
         <div className="balance-all">
           <div className="balance-header">{t('balance.title')}</div>
@@ -434,7 +409,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
         </div>
       </div>
 
-      {/* PROMO SLIDER - ПОЛНОСТЬЮ СОХРАНЯЕМ ВАШ КОД */}
       <div 
         className="promo-slider" 
         id="promo-slider"
@@ -450,8 +424,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
           id="promo-slider-track"
           ref={trackRef}
           style={{
-            transform: `translateX(-${currentSlide * 100}%)`,
-            transition: 'transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)'
+            transform: `translateX(-${currentSlide * 100}%)`
           }}
         >
           {promoSlides.map((slide, index) => (
@@ -471,16 +444,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
           ))}
         </div>
         <div className="promo-slider-dots" id="promo-slider-dots">
-          <span
-            className="promo-slider-indicator"
-            aria-hidden="true"
-            style={{ transform: `translateX(${currentSlide * 12}px)` }}
-          >
-            <span
-              key={`${currentSlide}-${slideDirection}`}
-              className={`promo-slider-indicator-dot direction-${slideDirection}`}
-            />
-          </span>
           {promoSlides.map((_, index) => (
             <div 
               key={index}
@@ -492,7 +455,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
         </div>
       </div>
 
-      {/* БЛОК УСТАНОВКИ */}
       <div className="section-header">
         <h2 className="section-title">{t('nav.install')}</h2>
         <span className="count-badge">1</span>
@@ -512,7 +474,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
         </div>
       </div>
 
-      {/* БЛОК УПРАВЛЕНИЯ */}
       <div className="section-header">
         <h2 className="section-title">{t('management.title')}</h2>
         <span className="count-badge">2</span>
@@ -520,7 +481,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
 
       <div className="referrals-card">
         <div className="referrals-list">
-          {/* Карточка Локации */}
           <div className="referral-item" onClick={handleLocations}>
             <div className="referral-avatar">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -544,7 +504,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
             </div>
           </div>
 
-          {/* Карточка Устройства */}
           <div className="referral-item" onClick={handleDevices}>
             <div className="referral-avatar">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -571,20 +530,3 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

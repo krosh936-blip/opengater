@@ -6,16 +6,6 @@ const AUTH_BACKEND_ALT_URL = 'https://reauth.cloud';
 const AUTH_BACKEND_FALLBACK_URL = 'https://cdn.opngtr.ru/api';
 const AUTH_BACKEND_NEW_URL = 'https://opngtr.com/api';
 const AUTH_BACKEND_NEW_API_URL = 'https://cdn.opngtr.ru';
-// const AUTH_BACKEND_DIRECT_URL = 'https://cdn.opngtr.ru/api';
-// const AUTH_BACKEND_ALT_URL = 'https://opngtr.com/api';
-// const AUTH_BACKEND_FALLBACK_URL = 'https://cdn.opngtr.ru';
-// const AUTH_BACKEND_NEW_URL = 'https://opngtr.com';
-// const AUTH_BACKEND_NEW_API_URL = 'https://cdn.opngtr.ru/api';
-// const AUTH_BACKEND_DIRECT_URL = 'https://api.bot.eutochkin.com/api';
-// const AUTH_BACKEND_ALT_URL = 'https://api.bot.eutochkin.com';
-// const AUTH_BACKEND_FALLBACK_URL = 'https://auth.bot.eutochkin.com';
-// const AUTH_BACKEND_NEW_URL = 'https://auth.bot.lk.eutochkin.com';
-// const AUTH_BACKEND_NEW_API_URL = 'https://auth.bot.lk.eutochkin.com/api';
 const AUTH_BACKEND_PROXY_URL = '/api/auth';
 const AUTH_BACKEND_URLS = [
   AUTH_BACKEND_PROXY_URL,
@@ -41,7 +31,6 @@ const cacheSet = (key: string, data: unknown, meta?: Record<string, unknown>) =>
     const payload = { ts: Date.now(), data, ...meta };
     localStorage.setItem(`${CACHE_PREFIX}:${key}`, JSON.stringify(payload));
   } catch {
-    // Игнорируем ошибки кеша.
   }
 };
 
@@ -108,12 +97,10 @@ const authFetch = async (path: string, init: RequestInit): Promise<Response> => 
               continue;
             }
           } catch {
-            // Игнорируем ошибки парсинга — возвращаем ответ как есть.
           }
         }
         return response;
       }
-      // Если прокси/хост недоступен или токен валиден только на другом хосте — пробуем следующий.
       if ([401, 403, 404, 500, 502, 503, 504].includes(response.status)) {
         lastError = new Error(`Auth backend error: ${response.status}`);
         continue;
@@ -327,6 +314,37 @@ const fetchJsonWithFallbacks = async <T>(attempts: Array<{ url: string; init: Re
   }
   throw new Error('Failed to load data');
 };
+
+const isAuthLikeError = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return (
+    /\b401\b/.test(message) ||
+    /\b403\b/.test(message) ||
+    /invalid token/i.test(message) ||
+    /auth error/i.test(message) ||
+    /Недействительный токен/i.test(message)
+  );
+};
+
+const withRecoveredUserToken = async <T>(request: (token: string) => Promise<T>): Promise<T> => {
+  const token = getUserToken();
+  if (!token) {
+    throw new Error('User token not found');
+  }
+
+  try {
+    return await request(token);
+  } catch (error) {
+    if (!isAuthLikeError(error)) {
+      throw error;
+    }
+    const recovered = await recoverUserTokenFromAuth();
+    if (!recovered || recovered === token) {
+      throw error;
+    }
+    return request(recovered);
+  }
+};
 export const getUserToken = (): string | null => {
   if (typeof window !== 'undefined') {
     const storedToken =
@@ -342,7 +360,6 @@ export const getUserToken = (): string | null => {
   return null;
 };
 
-// Функция для сохранения user_token
 export const setUserToken = (token: string): void => {
   if (typeof window !== 'undefined') {
     localStorage.setItem('user_token', token);
@@ -350,7 +367,6 @@ export const setUserToken = (token: string): void => {
   }
 };
 
-// Функция для удаления user_token
 export const removeUserToken = (): void => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('user_token');
@@ -363,7 +379,6 @@ export const removeUserToken = (): void => {
   }
 };
 
-// Основная функция для получения данных пользователя
 export const fetchUserInfo = async (): Promise<UserInfo> => {
   const token = getUserToken();
   
@@ -379,9 +394,6 @@ export const fetchUserInfo = async (): Promise<UserInfo> => {
     {
       url: `${API_PROXY_BASE_URL}/user/info?token=${encodeURIComponent(token)}`,
       headers: buildAuthHeaders(token),
-    },
-    {
-      url: `${API_PROXY_BASE_URL}/user/info/token?token=${encodeURIComponent(token)}`,
     },
   ];
 
@@ -431,9 +443,18 @@ export const fetchUserInfo = async (): Promise<UserInfo> => {
 
   if (lastError) {
     const isAuthError =
-      lastError.message.includes('Недействительный токен') ||
       lastError.message.includes('401') ||
-      lastError.message.includes('403');
+      lastError.message.includes('403') ||
+      /token|auth/i.test(lastError.message);
+    if (isAuthError) {
+      try {
+        const recovered = await recoverUserTokenFromAuth();
+        if (recovered && recovered !== token) {
+          return fetchUserInfoByToken(recovered);
+        }
+      } catch {
+      }
+    }
     if (!isAuthError && (lastStatus === null || lastStatus === 404 || lastStatus === 429 || lastStatus >= 500)) {
       const { data, meta } = cacheGetWithMeta<UserInfo>('user', CACHE_TTL.user);
       if (data && typeof meta.token === 'string' && meta.token === token) {
@@ -445,7 +466,6 @@ export const fetchUserInfo = async (): Promise<UserInfo> => {
   throw new Error('Неизвестная ошибка при загрузке данных');
 };
 
-// Функция для получения подписок (пример)
 export const fetchSubscriptionLinks = async (): Promise<{
   global: string;
   ru: string;
@@ -459,7 +479,6 @@ export const fetchSubscriptionLinks = async (): Promise<{
   };
 };
 
-// Функция для получения баланса
 export const fetchBalance = async (): Promise<{
   balance: number;
   currency: Currency;
@@ -639,7 +658,6 @@ export const fetchPaymentTariffs = async (): Promise<PaymentTariff[]> => {
     .filter((item): item is PaymentTariff => !!item);
 };
 
-// Функция для получения дней оставшихся
 export const calculateDaysRemaining = (expireDate: string): string => {
   const msPerDay = 1000 * 60 * 60 * 24;
   const dateOnlyMatch = expireDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -693,11 +711,16 @@ export const fetchAvailableLocations = async (
   }
 
   const fetchPromise = (async () => {
-    const token = getUserToken();
-    const headers = {
-      ...buildJsonHeaders(token),
-      ...(apiLanguage ? { 'Accept-Language': apiLanguage } : {}),
-    };
+    const requestWithToken = async (token: string | null) =>
+      fetch(url, {
+        method: 'GET',
+        headers: {
+          ...buildJsonHeaders(token),
+          ...(apiLanguage ? { 'Accept-Language': apiLanguage } : {}),
+        },
+        credentials: 'include',
+      });
+
     const languageQuery = apiLanguage ? `language_code=${encodeURIComponent(apiLanguage)}` : '';
     const baseUrl = languageQuery
       ? `${API_PROXY_BASE_URL}/user/locations/available?${languageQuery}`
@@ -705,11 +728,14 @@ export const fetchAvailableLocations = async (
     const url = forceNetwork ? appendCacheBust(baseUrl) : baseUrl;
 
     try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers,
-        credentials: 'include',
-      });
+      let response = await requestWithToken(getUserToken());
+
+      if ([401, 403].includes(response.status)) {
+        const recovered = await recoverUserTokenFromAuth();
+        if (recovered) {
+          response = await requestWithToken(recovered);
+        }
+      }
 
       if (response.status === 429) {
         const retryAfter = response.headers.get('retry-after');
@@ -761,19 +787,19 @@ export const fetchAvailableLocations = async (
 
 export const updateLocations = async (_userId: number, locations: number[]): Promise<string> => {
   void _userId;
-  const token = getUserToken();
-  const headers = buildJsonHeaders(token);
-  const result = await fetchJsonWithFallbacks<unknown>([
-    {
-      url: `${API_PROXY_BASE_URL}/user/locations/`,
-      init: {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ locations }),
-        credentials: 'include',
+  const result = await withRecoveredUserToken<unknown>(async (token) =>
+    fetchJsonWithFallbacks<unknown>([
+      {
+        url: `${API_PROXY_BASE_URL}/user/locations/`,
+        init: {
+          method: 'POST',
+          headers: buildJsonHeaders(token),
+          body: JSON.stringify({ locations }),
+          credentials: 'include',
+        },
       },
-    },
-  ]);
+    ])
+  );
   return typeof result === 'string' ? result : 'OK';
 };
 
@@ -782,7 +808,6 @@ export const fetchLocationsTariff = async (
   locations: number[]
 ): Promise<number> => {
   void _userId;
-  const token = getUserToken();
   const params = new URLSearchParams();
   locations.forEach((id) => {
     if (Number.isFinite(id)) {
@@ -791,16 +816,18 @@ export const fetchLocationsTariff = async (
   });
 
   const query = params.toString();
-  const data = await fetchJsonWithFallbacks<unknown>([
-    {
-      url: appendCacheBust(`${API_PROXY_BASE_URL}/user/locations/tariff${query ? `?${query}` : ''}`),
-      init: {
-        method: 'GET',
-        headers: buildJsonHeaders(token),
-        credentials: 'include',
+  const data = await withRecoveredUserToken<unknown>(async (token) =>
+    fetchJsonWithFallbacks<unknown>([
+      {
+        url: appendCacheBust(`${API_PROXY_BASE_URL}/user/locations/tariff${query ? `?${query}` : ''}`),
+        init: {
+          method: 'GET',
+          headers: buildJsonHeaders(token),
+          credentials: 'include',
+        },
       },
-    },
-  ]);
+    ])
+  );
 
   if (typeof data === 'number' && Number.isFinite(data)) {
     return data;
@@ -965,41 +992,44 @@ export const setUserLanguage = async (language: string, userId?: number | null):
 
 export const fetchDeviceButtons = async (_userId: number): Promise<DeviceButtonOption[]> => {
   void _userId;
-  const token = getUserToken();
-  return fetchJsonWithFallbacks<DeviceButtonOption[]>([
-    {
-      url: appendCacheBust(`${API_PROXY_BASE_URL}/user/devices/number/buttons`),
-      init: { method: 'GET', headers: buildJsonHeaders(token), credentials: 'include' },
-    },
-  ]);
+  return withRecoveredUserToken<DeviceButtonOption[]>(async (token) =>
+    fetchJsonWithFallbacks<DeviceButtonOption[]>([
+      {
+        url: appendCacheBust(`${API_PROXY_BASE_URL}/user/devices/number/buttons`),
+        init: { method: 'GET', headers: buildJsonHeaders(token), credentials: 'include' },
+      },
+    ])
+  );
 };
 
 export const setDeviceNumber = async (_userId: number, deviceNumber: number): Promise<number> => {
   void _userId;
-  const token = getUserToken();
-  return fetchJsonWithFallbacks<number>([
-    {
-      url: `${API_PROXY_BASE_URL}/user/devices/number/`,
-      init: {
-        method: 'POST',
-        headers: buildJsonHeaders(token),
-        body: JSON.stringify({ device_number: deviceNumber }),
-        credentials: 'include',
+  return withRecoveredUserToken<number>(async (token) =>
+    fetchJsonWithFallbacks<number>([
+      {
+        url: `${API_PROXY_BASE_URL}/user/devices/number/`,
+        init: {
+          method: 'POST',
+          headers: buildJsonHeaders(token),
+          body: JSON.stringify({ device_number: deviceNumber }),
+          credentials: 'include',
+        },
       },
-    },
-  ]);
+    ])
+  );
 };
 
 export const fetchDeviceTariff = async (_userId: number, deviceNumber: number): Promise<DeviceTariffResponse> => {
   void _userId;
-  const token = getUserToken();
   const query = `device_number=${encodeURIComponent(deviceNumber)}`;
-  return fetchJsonWithFallbacks<DeviceTariffResponse>([
-    {
-      url: appendCacheBust(`${API_PROXY_BASE_URL}/user/devices/number/tariff?${query}`),
-      init: { method: 'GET', headers: buildJsonHeaders(token), credentials: 'include' },
-    },
-  ]);
+  return withRecoveredUserToken<DeviceTariffResponse>(async (token) =>
+    fetchJsonWithFallbacks<DeviceTariffResponse>([
+      {
+        url: appendCacheBust(`${API_PROXY_BASE_URL}/user/devices/number/tariff?${query}`),
+        init: { method: 'GET', headers: buildJsonHeaders(token), credentials: 'include' },
+      },
+    ])
+  );
 };
 
 const parsePaymentNumber = (value: unknown): number | null => {
@@ -1399,9 +1429,6 @@ export const fetchUserInfoByToken = async (token: string): Promise<UserInfo> => 
       url: `${API_PROXY_BASE_URL}/user/info?token=${encodeURIComponent(token)}`,
       headers: buildAuthHeaders(token),
     },
-    {
-      url: `${API_PROXY_BASE_URL}/user/info/token?token=${encodeURIComponent(token)}`,
-    },
   ];
 
   let lastError: Error | null = null;
@@ -1446,9 +1473,9 @@ export const fetchUserInfoByToken = async (token: string): Promise<UserInfo> => 
 
   if (lastError) {
     const isAuthError =
-      lastError.message.includes('Недействительный токен') ||
       lastError.message.includes('401') ||
-      lastError.message.includes('403');
+      lastError.message.includes('403') ||
+      /token|auth/i.test(lastError.message);
     if (!isAuthError && (lastStatus === null || lastStatus === 404 || lastStatus === 429 || lastStatus >= 500)) {
       const { data, meta } = cacheGetWithMeta<UserInfo>('user', CACHE_TTL.user);
       if (data && typeof meta.token === 'string' && meta.token === token) {
@@ -1767,7 +1794,6 @@ export const fetchAuthProfile = async (accessToken: string): Promise<AuthUserPro
             return fetchAuthProfile(tokens.access_token);
           }
         } catch {
-          // Если refresh не помог — отдаём null, чтобы UI показал логин.
         }
       }
     }
@@ -1874,7 +1900,6 @@ export const fetchAuthProfile = async (accessToken: string): Promise<AuthUserPro
         telegramUsername = telegramUsername || methods.telegramUsername;
       }
     } catch {
-      // Игнорируем ошибки, чтобы не ломать профиль.
     }
   }
 
@@ -1931,7 +1956,6 @@ export const createAuthUserFromTelegram = async (
     return { ok: true, token };
   };
 
-  // Сначала основной endpoint, затем тестовый (если в ответе нет токена).
   const primary = await requestToken('/auth/telegram/web');
   if (primary.ok) {
     return primary.token;

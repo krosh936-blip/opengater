@@ -4,7 +4,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useUser } from '@/contexts/UserContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 
-// РўРёРї РґР»СЏ РґР°РЅРЅС‹С… РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
 interface UserData {
   name: string;
   email: string;
@@ -18,7 +17,6 @@ interface ProfileDropdownProps {
   userData?: UserData;
 }
 
-// Р—Р°РіР»СѓС€РєР° РґР°РЅРЅС‹С… (Р±СѓРґРµС‚ Р·Р°РјРµРЅРµРЅР° РЅР° РґР°РЅРЅС‹Рµ РёР· Р‘Р”)
 const DEFAULT_USER_DATA: UserData = {
   name: '',
   email: '',
@@ -39,7 +37,6 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   
-  // Р“РµРЅРµСЂР°С†РёСЏ РёРЅРёС†РёР°Р»РѕРІ
   const getInitials = (name: string): string => {
     if (!name || name.trim() === '') return '?';
     return name
@@ -62,7 +59,6 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       : '';
   const currentCurrency = currency.code;
   
-  // РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ СЃ isOpen
   useEffect(() => {
     if (isOpen && dropdownState === 'closed') {
       setDropdownState('active');
@@ -230,22 +226,6 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           )}
         </div>
         
-        <div className="profile-menu-item" onClick={handleThemeToggle}>
-          <div className="profile-menu-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-          </div>
-          <span data-i18n="profile.theme" className="translated">
-            {theme === 'dark' ? t('profile.theme.dark') : t('profile.theme.light')}
-          </span>
-          <div className="theme-toggle-container">
-            <div className={`theme-toggle ${theme === 'dark' ? 'active' : ''}`} id="desktopThemeToggle">
-              <div className="theme-toggle-slider"></div>
-            </div>
-          </div>
-        </div>
-
         <div className="currency-dropdown-wrapper">
           <div className="profile-menu-item with-arrow" onClick={handleCurrencyToggle}>
             <div className="profile-menu-icon">
@@ -290,6 +270,22 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
               </div>
             </div>
           )}
+        </div>
+
+        <div className="profile-menu-item" onClick={handleThemeToggle}>
+          <div className="profile-menu-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </div>
+          <span data-i18n="profile.theme" className="translated">
+            {theme === 'dark' ? t('profile.theme.dark') : t('profile.theme.light')}
+          </span>
+          <div className="theme-toggle-container">
+            <div className={`theme-toggle ${theme === 'dark' ? 'active' : ''}`} id="desktopThemeToggle">
+              <div className="theme-toggle-slider"></div>
+            </div>
+          </div>
         </div>
         
         <div className="profile-menu-divider"></div>

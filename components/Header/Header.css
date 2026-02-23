@@ -1,5 +1,5 @@
 ﻿
-/* РћСЃРЅРѕРІРЅС‹Рµ СЃС‚РёР»Рё header */
+/* Header layout */
 .header {
   width: 100%;
   background: transparent;
@@ -38,8 +38,8 @@
 }
 
 .theme-switcher {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   background: var(--surface);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -80,7 +80,7 @@
   display: block;
 }
 
-/* РЎС‚РёР»Рё Р»РѕРіРѕС‚РёРїР° */
+/* Logo */
 .logo {
   display: flex;
   align-items: center;
@@ -120,8 +120,6 @@
     0 0 0 12px var(--bg-primary),
     14px 0 0 12px var(--bg-primary);
 }
-
-/* РЎС‚РёР»Рё Р°РІР°С‚Р°СЂР° РїСЂРѕС„РёР»СЏ */
 
 /* Profile dropdown container */
 .profile-dropdown-container {
@@ -210,8 +208,8 @@ body:not(.theme-transition) .mobile-header .profile-avatar {
 
 /* Profile menu styles from original */
 .profile-avatar {
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   background: linear-gradient(135deg, #5BA3F5, #3D7EDB);
   border-radius: 50%;
   display: flex;
@@ -220,7 +218,7 @@ body:not(.theme-transition) .mobile-header .profile-avatar {
   cursor: pointer;
   transition: all 0.2s;
   color: #ffffff;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   border: none;
 }

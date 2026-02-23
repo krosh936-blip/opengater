@@ -208,22 +208,6 @@ const ProfileSlideMenu: React.FC<ProfileSlideMenuProps> = ({
           )}
         </div>
 
-        <div className="profile-menu-item" onClick={handleThemeToggle}>
-          <div className="profile-menu-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-          </div>
-          <span data-i18n="profile.theme" className="translated">
-            {theme === 'dark' ? t('profile.theme.dark') : t('profile.theme.light')}
-          </span>
-          <div className="theme-toggle-container">
-            <div className={`theme-toggle ${theme === 'dark' ? 'active' : ''}`} id="themeToggle">
-              <div className="theme-toggle-slider"></div>
-            </div>
-          </div>
-        </div>
-
         <div className="currency-dropdown-wrapper mobile">
           <div className="profile-menu-item with-arrow" onClick={handleCurrencyToggle}>
             <div className="profile-menu-icon">
@@ -268,6 +252,22 @@ const ProfileSlideMenu: React.FC<ProfileSlideMenuProps> = ({
               </div>
             </div>
           )}
+        </div>
+
+        <div className="profile-menu-item" onClick={handleThemeToggle}>
+          <div className="profile-menu-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </div>
+          <span data-i18n="profile.theme" className="translated">
+            {theme === 'dark' ? t('profile.theme.dark') : t('profile.theme.light')}
+          </span>
+          <div className="theme-toggle-container">
+            <div className={`theme-toggle ${theme === 'dark' ? 'active' : ''}`} id="themeToggle">
+              <div className="theme-toggle-slider"></div>
+            </div>
+          </div>
         </div>
 
         <div className="profile-menu-divider"></div>

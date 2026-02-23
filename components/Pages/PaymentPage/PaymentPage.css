@@ -454,8 +454,8 @@
 
 .light-theme .payment-cta,
 [data-theme="light"] .payment-cta {
-  background: #007AFF;
-  color: #fff;
+  background: var(--button-bg);
+  color: var(--button-text);
 }
 
 @keyframes fadeInUp {

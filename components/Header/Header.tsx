@@ -31,7 +31,6 @@ const Header: React.FC = () => {
     subscriptionActive,
   };
   
-  // РџРѕР»СѓС‡Р°РµРј РёРЅРёС†РёР°Р»С‹
   const getInitials = (name: string): string => {
     if (!name) return '?';
     return name
@@ -69,7 +68,6 @@ const Header: React.FC = () => {
     setAuthLabelFallback(fallback);
   }, [user?.id]);
 
-  // Р—Р°РєСЂС‹С‚РёРµ dropdown РїСЂРё РєР»РёРєРµ РІРЅРµ РµРіРѕ
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -86,7 +84,6 @@ const Header: React.FC = () => {
     };
   }, [isDropdownOpen]);
   
-  // Р—Р°РєСЂС‹С‚РёРµ РїРѕ Escape
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -206,7 +203,7 @@ const Header: React.FC = () => {
         <button
           className={`profile-avatar ${isAtTop ? '' : 'is-hidden'}`}
           id="profile-avatar"
-          title="РџСЂРѕС„РёР»СЊ"
+          title="Profile"
           onClick={handleOpenMobileMenu}
         >
           <span id="profile-initials" className="profile-initials visible">
