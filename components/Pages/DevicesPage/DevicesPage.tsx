@@ -224,7 +224,7 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
   const [summaryVisible, setSummaryVisible] = useState(false);
   const [actionsVisible, setActionsVisible] = useState(false);
   const tariffInFlightRef = useRef<Set<number>>(new Set());
-  const activeServerCurrencyCode = user?.currency?.code || currency.code;
+  const activeServerCurrencyCode = currency.code || user?.currency?.code || 'RUB';
 
   const formatTariff = (value: number, code?: string) => {
     const amount = Number(value) || 0;

@@ -22,7 +22,6 @@ const STORAGE_KEY = 'currency_code';
 const PENDING_KEY = 'currency_pending_code';
 const PENDING_TS_KEY = 'currency_pending_ts';
 const PENDING_TTL_MS = 90 * 1000;
-const PENDING_GRACE_MS = 12 * 1000;
 const waitMs = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 const DEFAULT_CURRENCIES: Currency[] = [
@@ -86,6 +85,7 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
   const [isHydrated, setIsHydrated] = useState(false);
   const [currencyRefreshId, setCurrencyRefreshId] = useState(0);
   const setCurrencyInFlightRef = useRef<Promise<void> | null>(null);
+  const lastServerCurrencyRef = useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -125,32 +125,37 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!user?.currency?.code) return;
+    const serverCode = String(user.currency.code || '').trim().toUpperCase();
+    if (!serverCode) return;
+
+    const prevServerCode = lastServerCurrencyRef.current;
+    const serverChanged = !!prevServerCode && prevServerCode !== serverCode;
+
     if (typeof window !== 'undefined') {
       const pending = localStorage.getItem(PENDING_KEY);
-      const pendingTs = Number(localStorage.getItem(PENDING_TS_KEY) || 0);
-      const pendingAge = pendingTs ? Date.now() - pendingTs : Infinity;
-      const pendingFresh =
-        !!pending && !!pendingTs && pendingAge < PENDING_TTL_MS;
-      if (pendingFresh && pending !== user.currency.code) {
-        // Keep optimistic state only shortly after local switch.
-        if (pendingAge <= PENDING_GRACE_MS) {
-          return;
-        }
-        localStorage.removeItem(PENDING_KEY);
-        localStorage.removeItem(PENDING_TS_KEY);
-      } else if (pending && pending !== user.currency.code) {
+      if (pending && pending !== serverCode) {
         localStorage.removeItem(PENDING_KEY);
         localStorage.removeItem(PENDING_TS_KEY);
       }
-      if (pending === user.currency.code) {
+      if (pending === serverCode) {
         localStorage.removeItem(PENDING_KEY);
         localStorage.removeItem(PENDING_TS_KEY);
-        clearCurrencySensitiveCache();
       }
-      localStorage.setItem(STORAGE_KEY, user.currency.code);
+      localStorage.setItem(STORAGE_KEY, serverCode);
     }
-    setSelectedCode(user.currency.code);
-  }, [user?.currency?.code]);
+
+    const localChanged = selectedCode !== serverCode;
+    if (localChanged) {
+      setSelectedCode(serverCode);
+    }
+
+    if (serverChanged || localChanged) {
+      clearCurrencySensitiveCache();
+      setCurrencyRefreshId((prev) => prev + 1);
+    }
+
+    lastServerCurrencyRef.current = serverCode;
+  }, [user?.currency?.code, selectedCode]);
 
   useEffect(() => {
     if (!isHydrated || typeof window === 'undefined') return;

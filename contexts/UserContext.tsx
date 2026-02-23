@@ -1,5 +1,5 @@
 ﻿'use client'
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { UserInfo, fetchUserInfo, getUserToken, removeUserToken, calculateDaysRemaining, recoverUserTokenFromAuth } from '@/lib/api';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -23,6 +23,8 @@ const extractHttpStatus = (message: string): number | null => {
   return Number.isFinite(status) ? status : null;
 };
 
+const SILENT_REFRESH_MIN_INTERVAL_MS = 2500;
+
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -31,108 +33,133 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { applyLanguageFromServer } = useLanguage();
+  const silentInFlightRef = useRef<Promise<void> | null>(null);
+  const lastSilentRefreshTsRef = useRef(0);
 
-  const loadUser = useCallback(async (options?: { silent?: boolean }) => {
+  const loadUser = useCallback((options?: { silent?: boolean }) => {
     const silent = options?.silent === true;
-    try {
-      if (!silent) {
-        setIsLoading(true);
-        setError(null);
+    if (silent) {
+      if (silentInFlightRef.current) {
+        return silentInFlightRef.current;
       }
-      
-      const token = getUserToken();
-      // Если токена нет — пользователь не авторизован, API не дергаем.
-      if (!token) {
-        if (!silent) {
-          setIsAuthenticated(false);
-          setUser(null);
-        }
-        return;
-      }
-
-      const userData = await fetchUserInfo();
-      setUser(userData);
-      setIsAuthenticated(true);
-      setError(null);
-      if (typeof window !== 'undefined' && userData?.id) {
-        localStorage.setItem('user_id', String(userData.id));
-      }
-      // Синхронизируем язык UI с настройкой пользователя (если есть).
-      if (userData?.language) {
-        const raw = userData.language.toLowerCase();
-        const nextLang = raw.includes('ru') || raw.includes('рус')
-          ? 'ru'
-          : raw.includes('en') || raw.includes('eng')
-          ? 'en'
-          : raw.includes('am') || raw.includes('arm') || raw.includes('հայ') || raw.includes('hy')
-          ? 'am'
-          : null;
-        const pendingLang =
-          typeof window !== 'undefined' ? localStorage.getItem('user_language_pending') : null;
-        const pendingTsRaw =
-          typeof window !== 'undefined' ? localStorage.getItem('user_language_pending_ts') : null;
-        const pendingTs = pendingTsRaw ? Number(pendingTsRaw) : 0;
-        const isPendingFresh =
-          !!pendingLang && !!pendingTs && Date.now() - pendingTs < 60 * 1000;
-        if (nextLang && !(isPendingFresh && pendingLang !== nextLang)) {
-          applyLanguageFromServer(nextLang);
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('user_language_pending');
-            localStorage.removeItem('user_language_pending_ts');
-          }
-        }
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё РґР°РЅРЅС‹С…';
-      if (!silent) {
-        setError(message);
-      }
-      const status = extractHttpStatus(message);
-      const isAuthError =
-        message.includes('РќРµРґРµР№СЃС‚РІРёС‚РµР»СЊРЅС‹Р№ С‚РѕРєРµРЅ') ||
-        status === 401 ||
-        status === 403;
-      const isRateLimitError =
-        status === 429 ||
-        /too many requests|СЃР»РёС€РєРѕРј РјРЅРѕРіРѕ Р·Р°РїСЂРѕСЃРѕРІ/i.test(message);
-      const isServerError =
-        status != null && status >= 500 && status <= 599;
-      const hasToken = !!getUserToken();
-      if (isAuthError) {
-        try {
-          const recovered = await recoverUserTokenFromAuth();
-          if (recovered) {
-            const userData = await fetchUserInfo();
-            setUser(userData);
-            setIsAuthenticated(true);
-            setError(null);
-            if (typeof window !== 'undefined' && userData?.id) {
-              localStorage.setItem('user_id', String(userData.id));
-            }
-            return;
-          }
-        } catch {
-          // Если восстановить токен не удалось — падаем дальше и выходим на логин.
-        }
-      }
-      if (isAuthError) {
-        removeUserToken();
-        setIsAuthenticated(false);
-        setUser(null);
-        if (typeof window !== 'undefined' && pathname && !pathname.startsWith('/auth')) {
-          router.replace('/auth/login');
-        }
-        return;
-      }
-      if (isRateLimitError || isServerError || hasToken) {
-        // На 429/5xx не выкидываем из сессии: это временная ошибка.
-        setIsAuthenticated(hasToken);
-      }
-    } finally {
-      if (!silent) {
-        setIsLoading(false);
+      if (Date.now() - lastSilentRefreshTsRef.current < SILENT_REFRESH_MIN_INTERVAL_MS) {
+        return Promise.resolve();
       }
     }
+
+    const runner = (async () => {
+      try {
+        if (!silent) {
+          setIsLoading(true);
+          setError(null);
+        }
+
+        const token = getUserToken();
+        // Если токена нет — пользователь не авторизован, API не дергаем.
+        if (!token) {
+          if (!silent) {
+            setIsAuthenticated(false);
+            setUser(null);
+          }
+          return;
+        }
+
+        const userData = await fetchUserInfo();
+        setUser(userData);
+        setIsAuthenticated(true);
+        setError(null);
+        if (typeof window !== 'undefined' && userData?.id) {
+          localStorage.setItem('user_id', String(userData.id));
+        }
+        // Синхронизируем язык UI с настройкой пользователя (если есть).
+        if (userData?.language) {
+          const raw = userData.language.toLowerCase();
+          const nextLang = raw.includes('ru') || raw.includes('рус')
+            ? 'ru'
+            : raw.includes('en') || raw.includes('eng')
+            ? 'en'
+            : raw.includes('am') || raw.includes('arm') || raw.includes('հայ') || raw.includes('hy')
+            ? 'am'
+            : null;
+          const pendingLang =
+            typeof window !== 'undefined' ? localStorage.getItem('user_language_pending') : null;
+          const pendingTsRaw =
+            typeof window !== 'undefined' ? localStorage.getItem('user_language_pending_ts') : null;
+          const pendingTs = pendingTsRaw ? Number(pendingTsRaw) : 0;
+          const isPendingFresh =
+            !!pendingLang && !!pendingTs && Date.now() - pendingTs < 60 * 1000;
+          if (nextLang && !(isPendingFresh && pendingLang !== nextLang)) {
+            applyLanguageFromServer(nextLang);
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('user_language_pending');
+              localStorage.removeItem('user_language_pending_ts');
+            }
+          }
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё РґР°РЅРЅС‹С…';
+        if (!silent) {
+          setError(message);
+        }
+        const status = extractHttpStatus(message);
+        const isAuthError =
+          message.includes('РќРµРґРµР№СЃС‚РІРёС‚РµР»СЊРЅС‹Р№ С‚РѕРєРµРЅ') ||
+          status === 401 ||
+          status === 403;
+        const isRateLimitError =
+          status === 429 ||
+          /too many requests|СЃР»РёС€РєРѕРј РјРЅРѕРіРѕ Р·Р°РїСЂРѕСЃРѕРІ/i.test(message);
+        const isServerError =
+          status != null && status >= 500 && status <= 599;
+        const hasToken = !!getUserToken();
+        if (isAuthError) {
+          try {
+            const recovered = await recoverUserTokenFromAuth();
+            if (recovered) {
+              const userData = await fetchUserInfo();
+              setUser(userData);
+              setIsAuthenticated(true);
+              setError(null);
+              if (typeof window !== 'undefined' && userData?.id) {
+                localStorage.setItem('user_id', String(userData.id));
+              }
+              return;
+            }
+          } catch {
+            // Если восстановить токен не удалось — падаем дальше и выходим на логин.
+          }
+        }
+        if (isAuthError) {
+          removeUserToken();
+          setIsAuthenticated(false);
+          setUser(null);
+          if (typeof window !== 'undefined' && pathname && !pathname.startsWith('/auth')) {
+            router.replace('/auth/login');
+          }
+          return;
+        }
+        if (isRateLimitError || isServerError || hasToken) {
+          // На 429/5xx не выкидываем из сессии: это временная ошибка.
+          setIsAuthenticated(hasToken);
+        }
+      } finally {
+        if (silent) {
+          lastSilentRefreshTsRef.current = Date.now();
+        }
+        if (!silent) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    if (silent) {
+      silentInFlightRef.current = runner.finally(() => {
+        silentInFlightRef.current = null;
+      });
+      return silentInFlightRef.current;
+    }
+
+    return runner;
   }, [applyLanguageFromServer, pathname, router]);
 
   const refreshUser = useCallback(async (options?: { silent?: boolean }) => {
@@ -180,7 +207,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       if (document.visibilityState === 'visible') {
         refreshSilently();
       }
-    }, 45 * 1000);
+    }, 15 * 1000);
 
     return () => {
       window.removeEventListener('focus', handleFocus);

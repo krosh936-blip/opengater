@@ -4,7 +4,6 @@ import './Sidebar.css';
 import SidebarSection from './SidebarSection';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useUser } from '@/contexts/UserContext';
 
 // РРјРїРѕСЂС‚РёСЂСѓРµРј РєРѕРјРїРѕРЅРµРЅС‚С‹ СЃС‚СЂР°РЅРёС†
 import HomePage from '../Pages/HomePage/HomePage';
@@ -45,7 +44,6 @@ const isPageType = (value: string): value is PageType => pageTypes.includes(valu
 const Sidebar: React.FC = () => {
   const { theme } = useTheme();
   const { t } = useLanguage();
-  const { refreshUser } = useUser();
   const [activeItem, setActiveItem] = useState<PageType>('home'); // default start page
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -107,12 +105,6 @@ const Sidebar: React.FC = () => {
     ensureIcon('shortcut icon');
   }, [activeItem, t]);
 
-  useEffect(() => {
-    refreshUser({ silent: true }).catch(() => {
-      // Keep current page state on transient sync errors.
-    });
-  }, [activeItem, refreshUser]);
-  
   // Р¤СѓРЅРєС†РёСЏ СЂРµРЅРґРµСЂР° Р°РєС‚РёРІРЅРѕР№ СЃС‚СЂР°РЅРёС†С‹
   const renderActivePage = () => {
     switch (activeItem) {

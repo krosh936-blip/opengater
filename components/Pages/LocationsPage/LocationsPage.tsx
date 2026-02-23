@@ -228,7 +228,7 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
 
   const effectiveLocationsCost = locationsCostFromServer ?? locationsCost;
   const totalMonthly = serverTotalMonthly ?? (basePrice + locationsCost);
-  const activeServerCurrencyCode = user?.currency?.code || currency.code;
+  const activeServerCurrencyCode = currency.code || user?.currency?.code || 'RUB';
   const formatPrice = (value: number) => {
     const amount = Number(value) || 0;
     if (activeServerCurrencyCode && activeServerCurrencyCode !== currency.code) {
