@@ -155,12 +155,15 @@
   margin-bottom: 24px;
   border-radius: 28px;
   overflow: hidden;
+  touch-action: pan-y;
   animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .promo-slider-track {
   display: flex;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  transition: transform 0.74s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 .promo-slider.dragging .promo-slider-track {
@@ -195,6 +198,7 @@
   flex: 1;
   z-index: 2;
   max-width: 70%;
+  transition: opacity 0.42s ease;
 }
 
 .promo-slide-title {
@@ -220,6 +224,52 @@
   z-index: 2;
   align-self: center;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
+  transition: opacity 0.42s ease;
+}
+
+.promo-slide.active .promo-slide-content {
+  animation: promoSwipeContentIn 0.74s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.promo-slide.active .promo-slide-icon {
+  animation: promoSwipeIconIn 0.74s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.promo-slide.active .promo-slide-stars {
+  animation: promoSwipeStarsIn 0.74s ease-out;
+}
+
+@keyframes promoSwipeContentIn {
+  0% {
+    transform: translateX(30px);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes promoSwipeIconIn {
+  0% {
+    transform: translateX(24px) scale(0.96);
+    opacity: 0.45;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes promoSwipeStarsIn {
+  0% {
+    transform: translateX(18px);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .promo-slider-dots {
