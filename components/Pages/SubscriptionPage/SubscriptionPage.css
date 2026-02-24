@@ -502,6 +502,33 @@
   }
 }
 
+@media (max-width: 767px) {
+  .subscription-page {
+    padding: 10px 14px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+
+  .subscription-page .hero-section {
+    margin-bottom: 22px;
+  }
+
+  .subscription-card {
+    padding: 16px;
+    border-radius: 18px;
+    margin-bottom: 14px;
+  }
+
+  .card-header {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .link-field {
+    min-height: 40px;
+    padding: 10px;
+  }
+}
+
 @media (min-width: 768px) {
   .subscription-page {
     padding: 0;

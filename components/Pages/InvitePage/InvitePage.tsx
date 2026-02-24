@@ -6,10 +6,6 @@ import { useUser } from '@/contexts/UserContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { fetchReferredUsers, ReferredUser } from '@/lib/api';
 
-interface InvitePageProps {
-  onBack?: () => void;
-}
-
 type TelegramWebApp = {
   platform?: string;
   initDataUnsafe?: Record<string, unknown>;
@@ -33,7 +29,7 @@ const detectTelegram = () => {
   }
 };
 
-export default function InvitePage({ onBack }: InvitePageProps) {
+export default function InvitePage() {
   const { t } = useLanguage();
   const { user, isLoading, error, isAuthenticated } = useUser();
   const { currencyRefreshId, formatCurrency, formatMoneyFrom, convertAmount } = useCurrency();
@@ -192,16 +188,6 @@ export default function InvitePage({ onBack }: InvitePageProps) {
 
   return (
     <div className="invite-page">
-      <header className="invite-mobile-header">
-        <button className="back-button" onClick={onBack}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M19 12H5M5 12L12 19M5 12L12 5"></path>
-          </svg>
-        </button>
-        <div className="header-title">{t('referral.header_title')}</div>
-        <div className="header-spacer"></div>
-      </header>
-
       <div className="hero-section">
         <div className="hero-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

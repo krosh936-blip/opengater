@@ -165,6 +165,7 @@ export interface UserInfo {
   expire: string;
   bot_referral_link: string;
   web_referral_link: string;
+  referral_bonus_amount?: number | null;
   account: Account;
 }
 
@@ -222,6 +223,11 @@ export interface PaymentTariff {
   name?: string;
   amount: number;
   bonus: number;
+}
+
+export interface PaymentSystem {
+  name: string;
+  currency_code?: string;
 }
 
 export interface ReferredUser {
@@ -318,9 +324,16 @@ const isAuthLikeError = (error: unknown): boolean => {
 };
 
 const withRecoveredUserToken = async <T>(request: (token: string) => Promise<T>): Promise<T> => {
-  const token = getUserToken();
+  let token = getUserToken();
   if (!token) {
-    throw new Error('User token not found');
+    try {
+      token = await recoverUserTokenFromAuth();
+    } catch {
+      token = null;
+    }
+    if (!token) {
+      throw new Error('User token not found');
+    }
   }
 
   try {
@@ -329,7 +342,12 @@ const withRecoveredUserToken = async <T>(request: (token: string) => Promise<T>)
     if (!isAuthLikeError(error)) {
       throw error;
     }
-    const recovered = await recoverUserTokenFromAuth();
+    let recovered: string | null = null;
+    try {
+      recovered = await recoverUserTokenFromAuth();
+    } catch {
+      recovered = null;
+    }
     if (!recovered || recovered === token) {
       throw error;
     }
@@ -340,9 +358,7 @@ export const getUserToken = (): string | null => {
   if (typeof window !== 'undefined') {
     const storedToken =
       localStorage.getItem('user_token') ||
-      localStorage.getItem('auth_token') ||
-      localStorage.getItem('auth_access_token') ||
-      localStorage.getItem('access_token');
+      localStorage.getItem('auth_token');
     if (storedToken) {
       return storedToken;
     }
@@ -640,13 +656,178 @@ export const fetchPaymentTariffs = async (): Promise<PaymentTariff[]> => {
       const amount = typeof record.amount === 'number' ? record.amount : Number(record.amount);
       const bonus = typeof record.bonus === 'number' ? record.bonus : Number(record.bonus || 0);
       if (!Number.isFinite(amount)) return null;
-      return {
-        name: typeof record.name === 'string' ? record.name : undefined,
+      const tariff: PaymentTariff = {
         amount,
         bonus: Number.isFinite(bonus) ? bonus : 0,
-      } satisfies PaymentTariff;
+      };
+      if (typeof record.name === 'string' && record.name.trim()) {
+        tariff.name = record.name;
+      }
+      return tariff;
     })
     .filter((item): item is PaymentTariff => !!item);
+};
+
+export const fetchPaymentSystems = async (
+  languageName: string,
+  currencyCode: string
+): Promise<PaymentSystem[]> => {
+  const normalizedLanguage = String(languageName || '').trim() || 'English';
+  const normalizedCurrency = String(currencyCode || '').trim().toUpperCase() || 'RUB';
+  const query = `language_name=${encodeURIComponent(normalizedLanguage)}&currency_code=${encodeURIComponent(normalizedCurrency)}`;
+  const attempts: Array<{ url: string; init: RequestInit }> = [
+    {
+      url: `${API_PROXY_BASE_URL}/public/payments/systems?${query}`,
+      init: {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        credentials: 'include',
+      },
+    },
+    {
+      url: `${API_PROXY_BASE_URL}/public/payments/systems/?${query}`,
+      init: {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        credentials: 'include',
+      },
+    },
+  ];
+
+  const data = await fetchJsonWithFallbacks<unknown>(attempts);
+  if (!Array.isArray(data)) return [];
+
+  return data
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return null;
+      const record = entry as Record<string, unknown>;
+      const rawName =
+        (typeof record.name === 'string' && record.name) ||
+        (typeof record.system === 'string' && record.system) ||
+        (typeof record.id === 'string' && record.id) ||
+        '';
+      if (!rawName.trim()) return null;
+      const systemCurrency =
+        (typeof record.currency_code === 'string' && record.currency_code.toUpperCase()) ||
+        (typeof record.currency === 'string' && record.currency.toUpperCase()) ||
+        undefined;
+      const system: PaymentSystem = {
+        // Keep raw value as-is; some providers treat trailing spaces as significant.
+        name: rawName,
+      };
+      if (systemCurrency) {
+        system.currency_code = systemCurrency;
+      }
+      return system;
+    })
+    .filter((item): item is PaymentSystem => !!item);
+};
+
+const PAYMENT_URL_KEYS = ['url', 'payment_url', 'redirect_url', 'redirectUrl', 'link', 'invoice_url', 'checkout_url'];
+const PAYMENT_ID_KEYS = ['id', 'uuid', 'payment_id', 'invoice_id', 'payment_uuid', 'invoice_uuid'];
+const HELEKET_PAY_HOST = 'https://new-pay.heleket.com';
+const HELEKET_PAY_PREFIX = '/pay/';
+
+const toHeleketPayUrl = (value: string): string | null => {
+  const raw = value.trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith(HELEKET_PAY_PREFIX)) {
+    return `${HELEKET_PAY_HOST}${raw}`;
+  }
+  if (/^pay\/[0-9a-f-]{32,}$/i.test(raw)) {
+    return `${HELEKET_PAY_HOST}/${raw}`;
+  }
+  if (/^[0-9a-f-]{32,}$/i.test(raw)) {
+    return `${HELEKET_PAY_HOST}${HELEKET_PAY_PREFIX}${raw}`;
+  }
+  return null;
+};
+
+const extractPaymentUrl = (payload: unknown): string | null => {
+  if (typeof payload === 'string') {
+    return toHeleketPayUrl(payload);
+  }
+
+  if (!payload || typeof payload !== 'object') return null;
+  const record = payload as Record<string, unknown>;
+
+  for (const key of PAYMENT_URL_KEYS) {
+    const candidate = record[key];
+    if (typeof candidate === 'string') {
+      const parsed = toHeleketPayUrl(candidate);
+      if (parsed) {
+        return parsed;
+      }
+    }
+  }
+
+  for (const key of PAYMENT_ID_KEYS) {
+    const candidate = record[key];
+    if (typeof candidate === 'string') {
+      const parsed = toHeleketPayUrl(candidate);
+      if (parsed) {
+        return parsed;
+      }
+    }
+  }
+
+  const nested =
+    record.payment ||
+    record.result ||
+    record.data ||
+    record.meta;
+
+  if (nested && nested !== payload) {
+    return extractPaymentUrl(nested);
+  }
+
+  return null;
+};
+
+export const createPayment = async (system: string, amount: number): Promise<string> => {
+  const rawSystem = String(system || '');
+  const systemForValidation = rawSystem.trim();
+  const normalizedAmount = Number(amount);
+  if (!systemForValidation) {
+    throw new Error('Validation error: system is required');
+  }
+  if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+    throw new Error('Validation error: amount must be greater than zero');
+  }
+
+  return withRecoveredUserToken<string>(async (token) => {
+    const headers = buildJsonHeaders(token);
+    const body = JSON.stringify({
+      system: rawSystem,
+      amount: normalizedAmount,
+    });
+    const basePath = `${API_PROXY_BASE_URL}/user/payments`;
+    const attempts: Array<{ url: string; init: RequestInit }> = [
+      {
+        url: `${basePath}/`,
+        init: { method: 'POST', headers, body, credentials: 'include' },
+      },
+      {
+        url: basePath,
+        init: { method: 'POST', headers, body, credentials: 'include' },
+      },
+    ];
+
+    if (token) {
+      attempts.push({
+        url: `${basePath}/?token=${encodeURIComponent(token)}`,
+        init: { method: 'POST', headers, body, credentials: 'include' },
+      });
+    }
+
+    const data = await fetchJsonWithFallbacks<unknown>(attempts);
+    const url = extractPaymentUrl(data);
+    if (!url) {
+      throw new Error('Payment URL not found in server response');
+    }
+    return url;
+  });
 };
 
 export const calculateDaysRemaining = (expireDate?: string | null): string => {
@@ -1535,20 +1716,76 @@ const decodeUserIdFromJwt = (token: string): number | null => {
 
 export const recoverUserTokenFromAuth = async (): Promise<string | null> => {
   if (typeof window === 'undefined') return null;
+
+  const resolveUserIdFromAccessToken = async (accessToken: string): Promise<number | null> => {
+    if (!accessToken) return null;
+    let userId = decodeUserIdFromJwt(accessToken);
+    if (!userId) {
+      try {
+        const verificationData = await verifyAuthToken(accessToken);
+        userId = extractUserId(verificationData);
+      } catch {
+        userId = null;
+      }
+    }
+    if (!userId) {
+      try {
+        userId = await fetchAuthUserId(accessToken);
+      } catch {
+        userId = null;
+      }
+    }
+    return userId;
+  };
+
+  const requestTokenByUserId = async (userId: number | null): Promise<string | null> => {
+    if (!userId || !Number.isFinite(userId)) return null;
+    try {
+      const token = await authUserById(userId);
+      if (typeof token === 'string' && token) {
+        setUserToken(token);
+        localStorage.setItem('user_id', String(userId));
+        return token;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  };
+
+  const storedUserIdRaw = localStorage.getItem('user_id');
+  const storedUserId =
+    typeof storedUserIdRaw === 'string' && /^\d+$/.test(storedUserIdRaw)
+      ? Number(storedUserIdRaw)
+      : null;
+  const storedToken = await requestTokenByUserId(storedUserId);
+  if (storedToken) return storedToken;
+
   const accessToken =
     localStorage.getItem('auth_access_token') || localStorage.getItem('access_token');
-  if (!accessToken) return null;
-  let userId = decodeUserIdFromJwt(accessToken);
+  let userId = await resolveUserIdFromAccessToken(accessToken || '');
+
   if (!userId) {
-    userId = await fetchAuthUserId(accessToken);
+    const refreshToken =
+      localStorage.getItem('auth_refresh_token') || localStorage.getItem('ga_refresh_token');
+    if (refreshToken) {
+      try {
+        const refreshedTokens = await refreshAuthToken(refreshToken);
+        storeAuthTokens(refreshedTokens);
+        const refreshedAccessToken =
+          refreshedTokens.access_token ||
+          localStorage.getItem('auth_access_token') ||
+          localStorage.getItem('access_token') ||
+          '';
+        userId = await resolveUserIdFromAccessToken(refreshedAccessToken);
+      } catch {
+        userId = null;
+      }
+    }
   }
+
   if (!userId) return null;
-  const token = await authUserById(userId);
-  if (typeof token === 'string' && token) {
-    setUserToken(token);
-    return token;
-  }
-  return null;
+  return requestTokenByUserId(userId);
 };
 
 const parseNumericId = (raw: unknown): number | null => {
@@ -1928,7 +2165,9 @@ export const verifyTelegramAuth = async (
 export const createAuthUserFromTelegram = async (
   payload: TelegramAuthPayload
 ): Promise<string> => {
-  const requestToken = async (endpoint: string) => {
+  const requestToken = async (
+    endpoint: string
+  ): Promise<{ ok: true; token: string } | { ok: false; error: Error }> => {
     const response = await fetch(`${API_PROXY_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: {

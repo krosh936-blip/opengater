@@ -87,6 +87,7 @@ const LOCATION_LOCALIZED: Record<number, LocationLocales> = {
 };
 
 export default function LocationsPage({ onBack }: LocationsPageProps) {
+  void onBack;
   const { user, isLoading, error, isAuthenticated } = useUser();
   const { language, t, languageRefreshId } = useLanguage();
   const { formatCurrency, currency, currencies, currencyRefreshId } = useCurrency();
@@ -333,16 +334,6 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
 
   return (
     <div className="locations-page">
-      <header className="locations-mobile-header">
-        <button className="back-button" onClick={onBack}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M19 12H5M5 12L12 19M5 12L12 5"></path>
-          </svg>
-        </button>
-        <div className="header-title">{t('locations.header_title')}</div>
-        <div className="header-spacer"></div>
-      </header>
-
       <div className="hero-section">
         <div className="hero-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

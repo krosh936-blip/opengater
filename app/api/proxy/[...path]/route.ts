@@ -108,6 +108,7 @@ const buildResponse = async (req: NextRequest, upstreamResponse: Response, baseU
 const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
   const requestBody = req.method !== 'GET' && req.method !== 'HEAD' ? await req.text() : null;
   let lastError: Error | null = null;
+  let lastAuthResponse: { response: Response; baseUrl: string } | null = null;
 
   const upstreams = getPreferredUpstreams(req);
   for (const baseUrl of upstreams) {
@@ -141,18 +142,8 @@ const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
       const upstreamResponse = await fetchWithOptionalSlash(url, init);
       if (!upstreamResponse.ok) {
         if ([401, 403].includes(upstreamResponse.status)) {
-          const responseHeaders = new Headers();
-          upstreamResponse.headers.forEach((value, key) => {
-            if (!hopByHopHeaders.has(key.toLowerCase())) {
-              responseHeaders.set(key, value);
-            }
-          });
-          const body = await upstreamResponse.arrayBuffer();
-          return new Response(body, {
-            status: upstreamResponse.status,
-            statusText: upstreamResponse.statusText,
-            headers: responseHeaders,
-          });
+          lastAuthResponse = { response: upstreamResponse, baseUrl };
+          continue;
         }
         const shouldTryNext = [404, 500, 502, 503, 504].includes(upstreamResponse.status);
         if (shouldTryNext) {
@@ -165,6 +156,10 @@ const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown proxy error');
     }
+  }
+
+  if (lastAuthResponse) {
+    return buildResponse(req, lastAuthResponse.response, lastAuthResponse.baseUrl);
   }
 
   const message = lastError?.message || 'Unknown proxy error';

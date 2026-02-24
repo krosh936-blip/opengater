@@ -1,5 +1,5 @@
 ﻿'use client'
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './Header.css';
 import Logo from './Logo';
 import ProfileDropdown from './ProfileDropdown';
@@ -7,15 +7,65 @@ import ProfileAvatar from './ProfileAvatar';
 import { useUser } from '@/contexts/UserContext';
 import ProfileSlideMenu from './ProfileSlideMenu';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+
+type PageType =
+  | 'home'
+  | 'subscription'
+  | 'invite'
+  | 'raffle'
+  | 'locations'
+  | 'devices'
+  | 'help'
+  | 'install'
+  | 'profile'
+  | 'payment'
+  | 'history';
+
+const ACTIVE_PAGE_STORAGE_KEY = 'opengater_active_page';
+const ROOT_MOBILE_PAGES: PageType[] = ['home', 'subscription', 'help'];
+
+const getStoredActivePage = (): PageType => {
+  if (typeof window === 'undefined') return 'home';
+  const storedPage = window.localStorage.getItem(ACTIVE_PAGE_STORAGE_KEY);
+  return storedPage && isPageType(storedPage) ? storedPage : 'home';
+};
+
+const getStoredAuthLabelFallback = (): string => {
+  if (typeof window === 'undefined') return '';
+  return (
+    localStorage.getItem('ga_user_email') ||
+    localStorage.getItem('auth_user_label') ||
+    ''
+  );
+};
+
+const isPageType = (value: string): value is PageType => {
+  return [
+    'home',
+    'subscription',
+    'invite',
+    'raffle',
+    'locations',
+    'devices',
+    'help',
+    'install',
+    'profile',
+    'payment',
+    'history',
+  ].includes(value);
+};
 
 const Header: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isAtTop, setIsAtTop] = useState(true);
+  const [currentTs, setCurrentTs] = useState(() => Date.now());
+  const [activePage, setActivePage] = useState<PageType>('home');
+  const [authLabelFallback, setAuthLabelFallback] = useState('');
   const { user, isLoading } = useUser();
   const { toggleTheme } = useTheme();
-  const [authLabelFallback, setAuthLabelFallback] = useState('');
+  const { t } = useLanguage();
 
   const normalizedFallback = authLabelFallback.trim();
   const userEmail = user?.email || (user?.username?.includes('@') ? user.username : '');
@@ -23,30 +73,56 @@ const Header: React.FC = () => {
   const name = user?.full_name || userEmail || user?.username || normalizedFallback || (isLoading ? '' : 'Гость');
   const email = userEmail || fallbackEmail;
   const uid = user?.id ? String(user.id) : '';
-  const subscriptionActive = !!user && new Date(user.expire).getTime() > Date.now();
+  const subscriptionActive = !!user && new Date(user.expire).getTime() > currentTs;
+
   const userData = {
     name,
     email,
     uid,
     subscriptionActive,
   };
-  
-  const getInitials = (name: string): string => {
-    if (!name) return '?';
-    return name
+
+  const getInitials = (sourceName: string): string => {
+    if (!sourceName) return '?';
+    return sourceName
       .split(' ')
-      .map(word => word.charAt(0))
+      .map((word) => word.charAt(0))
       .join('')
       .toUpperCase()
       .slice(0, 2);
   };
-  
+
   const initials = getInitials(userData.name);
-  
+
+  const mobileTitle = useMemo(() => {
+    switch (activePage) {
+      case 'invite':
+        return t('referral.header_title');
+      case 'locations':
+        return t('locations.header_title');
+      case 'devices':
+        return t('devices.page_title');
+      case 'install':
+        return t('setup.header_title');
+      case 'profile':
+        return t('profile.edit_profile');
+      case 'payment':
+        return t('payment.title');
+      case 'history':
+        return t('nav.history');
+      case 'raffle':
+        return t('nav.raffle');
+      default:
+        return '';
+    }
+  }, [activePage, t]);
+
+  const isInnerMobilePage = !ROOT_MOBILE_PAGES.includes(activePage);
+
   const handleAvatarClick = () => {
     setIsDropdownOpen(!isDropdownOpen);
   };
-  
+
   const handleCloseDropdown = () => {
     setIsDropdownOpen(false);
   };
@@ -57,16 +133,47 @@ const Header: React.FC = () => {
 
   const handleCloseMobileMenu = () => {
     setIsMobileMenuOpen(false);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('profile-menu-reset'));
+    }
   };
-  
+
+  const handleMobileBack = () => {
+    setActivePage('home');
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(ACTIVE_PAGE_STORAGE_KEY, 'home');
+    window.dispatchEvent(new CustomEvent('app:navigate', { detail: 'home' }));
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const fallback =
-      localStorage.getItem('ga_user_email') ||
-      localStorage.getItem('auth_user_label') ||
-      '';
-    setAuthLabelFallback(fallback);
+    const timer = window.setTimeout(() => {
+      setAuthLabelFallback(getStoredAuthLabelFallback());
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [user?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const timer = window.setTimeout(() => {
+      setActivePage(getStoredActivePage());
+    }, 0);
+
+    const handleNavigate = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail;
+      if (detail && isPageType(detail)) {
+        setActivePage(detail);
+      }
+    };
+
+    window.addEventListener('app:navigate', handleNavigate as EventListener);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('app:navigate', handleNavigate as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -74,27 +181,27 @@ const Header: React.FC = () => {
         setIsDropdownOpen(false);
       }
     };
-    
+
     if (isDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-    
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isDropdownOpen]);
-  
+
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsDropdownOpen(false);
       }
     };
-    
+
     if (isDropdownOpen) {
       document.addEventListener('keydown', handleEscape);
     }
-    
+
     return () => {
       document.removeEventListener('keydown', handleEscape);
     };
@@ -126,22 +233,11 @@ const Header: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const getScrollTop = () => {
-      const main = document.querySelector('.main-content');
-      const mainScroll = main instanceof HTMLElement ? main.scrollTop : 0;
-      const windowScroll = window.scrollY || document.documentElement.scrollTop || 0;
-      return Math.max(windowScroll, mainScroll);
-    };
-
-    const handleScroll = () => {
-      setIsAtTop(getScrollTop() <= 10);
-    };
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+    const timer = window.setInterval(() => {
+      setCurrentTs(Date.now());
+    }, 60 * 1000);
     return () => {
-      window.removeEventListener('scroll', handleScroll);
-      document.removeEventListener('scroll', handleScroll, true);
+      window.clearInterval(timer);
     };
   }, []);
 
@@ -161,7 +257,7 @@ const Header: React.FC = () => {
       <header className="header">
         <div className="header-content">
           <Logo />
-          <div className={`header-actions ${isAtTop ? '' : 'is-hidden'}`}>
+          <div className="header-actions">
             <button
               className="theme-switcher"
               type="button"
@@ -184,11 +280,8 @@ const Header: React.FC = () => {
               </svg>
             </button>
             <div className="profile-dropdown-container" ref={dropdownRef}>
-              <ProfileAvatar 
-                initials={initials} 
-                onClick={handleAvatarClick}
-              />
-              <ProfileDropdown 
+              <ProfileAvatar initials={initials} onClick={handleAvatarClick} />
+              <ProfileDropdown
                 isOpen={isDropdownOpen}
                 onClose={handleCloseDropdown}
                 userData={userData}
@@ -198,10 +291,27 @@ const Header: React.FC = () => {
         </div>
       </header>
 
-      <header className="mobile-header">
-        <Logo />
+      <header className={`mobile-header ${isInnerMobilePage ? 'mobile-header--inner' : ''}`}>
+        {isInnerMobilePage ? (
+          <>
+            <button
+              className="mobile-back-button"
+              type="button"
+              onClick={handleMobileBack}
+              aria-label={t('common.back')}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M15 18L9 12L15 6"></path>
+              </svg>
+            </button>
+            <div className="mobile-header-title">{mobileTitle}</div>
+          </>
+        ) : (
+          <Logo />
+        )}
+
         <button
-          className={`profile-avatar ${isAtTop ? '' : 'is-hidden'}`}
+          className="profile-avatar mobile-profile-avatar"
           id="profile-avatar"
           title="Profile"
           onClick={handleOpenMobileMenu}

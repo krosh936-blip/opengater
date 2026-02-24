@@ -304,16 +304,6 @@ export default function InstallPage({ onBack }: InstallPageProps) {
 
   return (
     <div className="install-page">
-      <header className="install-mobile-header">
-        <button className="back-button" onClick={handleFinish}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M19 12H5M5 12L12 19M5 12L12 5" />
-          </svg>
-        </button>
-        <div className="header-title">{t('setup.header_title')}</div>
-        <div className="header-spacer"></div>
-      </header>
-
       <div className="progress-container">
         <div className="progress-steps">
           {[1, 2, 3, 4].map((step) => (

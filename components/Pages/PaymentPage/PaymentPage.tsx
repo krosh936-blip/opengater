@@ -1,20 +1,23 @@
 ﻿'use client'
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './PaymentPage.css';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { useUser } from '@/contexts/UserContext';
-import { fetchPaymentBonus, fetchPaymentTariffs } from '@/lib/api';
-
-interface PaymentPageProps {
-  onBack?: () => void;
-}
+import {
+  createPayment,
+  fetchPaymentBonus,
+  fetchPaymentSystems,
+  fetchPaymentTariffs,
+  PaymentSystem,
+} from '@/lib/api';
 
 type PaymentStep = 1 | 2 | 3;
 
 type AmountPreset = {
   amount: number;
   bonus: number;
+  name?: string;
 };
 
 const AMOUNT_PRESETS: AmountPreset[] = [
@@ -24,68 +27,110 @@ const AMOUNT_PRESETS: AmountPreset[] = [
   { amount: 1600, bonus: 200 },
 ];
 
-export default function PaymentPage({ onBack }: PaymentPageProps) {
-  const { t } = useLanguage();
+const LANGUAGE_NAME_BY_CODE: Record<string, string> = {
+  ru: 'Русский',
+  en: 'English',
+  am: 'Հայերեն',
+};
+
+const FALLBACK_SYSTEMS_BY_CURRENCY: Record<string, PaymentSystem[]> = {
+  RUB: [
+    { name: 'Crypto | USDT, BTC, ETH, TON ', currency_code: 'USD' },
+    { name: 'RUB | Карты, SberPay, ЮMoney ', currency_code: 'RUB' },
+  ],
+  USD: [{ name: 'Crypto | USDT, BTC, ETH, TON ', currency_code: 'USD' }],
+  AMD: [{ name: 'Crypto | USDT, BTC, ETH, TON ', currency_code: 'USD' }],
+};
+
+const isCryptoMethod = (value: string) =>
+  /crypto|crypt|usdt|btc|eth|ton|tron|coin|mus|heleket|wallet/i.test(value);
+
+const normalizeSystemName = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-');
+
+const getMethodTitle = (system: string, t: (key: string) => string) => {
+  const visibleSystem = system.trim();
+  if (/^yookassa$/i.test(visibleSystem)) {
+    return t('payment.method_rub_title');
+  }
+  if (isCryptoMethod(visibleSystem)) {
+    return t('payment.method_crypto_title');
+  }
+  return visibleSystem;
+};
+
+export default function PaymentPage() {
+  const { t, language } = useLanguage();
   const { currency, formatNumber } = useCurrency();
   const { user, isLoading, error, isAuthenticated } = useUser();
 
   const [step, setStep] = useState<PaymentStep>(1);
-  const [selectedMethod, setSelectedMethod] = useState<'rub' | 'crypto'>('rub');
   const [selectedPreset, setSelectedPreset] = useState<AmountPreset | null>(AMOUNT_PRESETS[0]);
   const [amountInput, setAmountInput] = useState<string>(String(AMOUNT_PRESETS[0].amount));
   const [amountPresets, setAmountPresets] = useState<AmountPreset[]>(AMOUNT_PRESETS);
   const [bonusValue, setBonusValue] = useState<number>(AMOUNT_PRESETS[0].bonus);
   const [isBonusLoading, setIsBonusLoading] = useState(false);
 
+  const [paymentSystems, setPaymentSystems] = useState<PaymentSystem[]>([]);
+  const [selectedSystem, setSelectedSystem] = useState<string>('');
+  const [isSystemsLoading, setIsSystemsLoading] = useState(false);
+
+  const [isCreatingPayment, setIsCreatingPayment] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [createdPaymentUrl, setCreatedPaymentUrl] = useState<string>('');
+  const amountInputRef = useRef(amountInput);
+  const selectedPresetRef = useRef<AmountPreset | null>(selectedPreset);
+  const selectedSystemRef = useRef(selectedSystem);
+
   const amountValue = Math.max(0, Number(amountInput || 0));
   const fallbackBonus = selectedPreset?.amount === amountValue ? selectedPreset.bonus : 0;
   const totalValue = amountValue + bonusValue;
 
-  const isRubCurrency = currency.code === 'RUB';
-  const isUsdLike = currency.code === 'USD' || currency.code === 'AMD';
-
   const paymentMethods = useMemo(() => {
-    const rubMethod = {
-      id: 'rub' as const,
-      title: t('payment.method_rub_title'),
-      subtitle: t('payment.method_available'),
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="3" y="6" width="18" height="12" rx="2"></rect>
-          <path d="M3 10H21"></path>
-          <circle cx="7" cy="14" r="1.5" fill="currentColor"></circle>
-        </svg>
-      ),
-    };
-    const cryptoMethod = {
-      id: 'crypto' as const,
-      title: t('payment.method_crypto_title'),
-      subtitle: t('payment.method_available'),
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="12" cy="12" r="9"></circle>
-          <path d="M8 11h6a2 2 0 0 1 0 4H9.5a2 2 0 0 0 0 4H14"></path>
-          <path d="M12 7v10"></path>
-        </svg>
-      ),
-    };
-    return isRubCurrency && !isUsdLike ? [rubMethod, cryptoMethod] : [cryptoMethod];
-  }, [isRubCurrency, isUsdLike, t]);
+    return paymentSystems.map((system, index) => {
+      const normalized = normalizeSystemName(system.name || `system-${index}`);
+      const crypto = isCryptoMethod(system.name || '');
+      return {
+        id: `${normalized}-${index}`,
+        system: system.name,
+        title: getMethodTitle(system.name, t),
+        subtitle: t('payment.method_available'),
+        crypto,
+      };
+    });
+  }, [paymentSystems, t]);
+
+  const selectedMethod = useMemo(
+    () => paymentMethods.find((method) => method.system === selectedSystem) || null,
+    [paymentMethods, selectedSystem]
+  );
 
   useEffect(() => {
-    if (!isRubCurrency || isUsdLike) {
-      setSelectedMethod('crypto');
-    }
-  }, [isRubCurrency, isUsdLike]);
+    amountInputRef.current = amountInput;
+  }, [amountInput]);
+
+  useEffect(() => {
+    selectedPresetRef.current = selectedPreset;
+  }, [selectedPreset]);
+
+  useEffect(() => {
+    selectedSystemRef.current = selectedSystem;
+  }, [selectedSystem]);
 
   useEffect(() => {
     let active = true;
-    const load = async () => {
+
+    const loadTariffs = async () => {
       try {
         const tariffs = await fetchPaymentTariffs();
         if (!active || tariffs.length === 0) return;
+
         const mapped = tariffs
           .map((tariff) => ({
+            name: tariff.name,
             amount: Number(tariff.amount),
             bonus: Number(tariff.bonus || 0),
           }))
@@ -95,9 +140,10 @@ export default function PaymentPage({ onBack }: PaymentPageProps) {
         if (!mapped.length) return;
 
         setAmountPresets(mapped);
-        const currentAmount = Number(amountInput || 0);
+        const currentAmount = Number(amountInputRef.current || 0);
         const matched = mapped.find((preset) => preset.amount === currentAmount) || null;
-        if (selectedPreset) {
+
+        if (selectedPresetRef.current) {
           if (matched) {
             setSelectedPreset(matched);
           } else {
@@ -108,15 +154,61 @@ export default function PaymentPage({ onBack }: PaymentPageProps) {
           setSelectedPreset(matched);
         }
       } catch {
-        // Используем дефолтные пресеты при ошибке.
+        // Keep local presets as fallback.
       }
     };
 
-    load();
+    loadTariffs();
     return () => {
       active = false;
     };
-  }, [currency.code, amountInput, selectedPreset]);
+  }, [currency.code]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadPaymentSystems = async () => {
+      try {
+        setIsSystemsLoading(true);
+        const languageName = LANGUAGE_NAME_BY_CODE[language] || 'English';
+        const systems = await fetchPaymentSystems(languageName, currency.code);
+
+        if (!active) return;
+
+        if (systems.length) {
+          setPaymentSystems(systems);
+          if (!systems.some((system) => system.name === selectedSystemRef.current)) {
+            setSelectedSystem(systems[0].name);
+            selectedSystemRef.current = systems[0].name;
+          }
+          return;
+        }
+      } catch {
+        // Fallback below.
+      } finally {
+        if (active) {
+          setIsSystemsLoading(false);
+        }
+      }
+
+      if (!active) return;
+
+      const fallback =
+        FALLBACK_SYSTEMS_BY_CURRENCY[currency.code] ||
+        [{ name: 'Crypto | USDT, BTC, ETH, TON ', currency_code: 'USD' }];
+
+      setPaymentSystems(fallback);
+      if (!fallback.some((system) => system.name === selectedSystemRef.current)) {
+        setSelectedSystem(fallback[0].name);
+        selectedSystemRef.current = fallback[0].name;
+      }
+    };
+
+    loadPaymentSystems();
+    return () => {
+      active = false;
+    };
+  }, [currency.code, language]);
 
   useEffect(() => {
     setBonusValue(fallbackBonus);
@@ -130,6 +222,7 @@ export default function PaymentPage({ onBack }: PaymentPageProps) {
 
     let active = true;
     const controller = new AbortController();
+
     const timeout = window.setTimeout(async () => {
       try {
         setIsBonusLoading(true);
@@ -146,7 +239,7 @@ export default function PaymentPage({ onBack }: PaymentPageProps) {
           setIsBonusLoading(false);
         }
       }
-    }, 350);
+    }, 320);
 
     return () => {
       active = false;
@@ -156,16 +249,19 @@ export default function PaymentPage({ onBack }: PaymentPageProps) {
   }, [amountValue, currency.code, fallbackBonus]);
 
   const minimumAmount = useMemo(() => {
-    const values = amountPresets.map((preset) => preset.amount).filter((amount) => Number.isFinite(amount) && amount > 0);
+    const values = amountPresets
+      .map((preset) => preset.amount)
+      .filter((amount) => Number.isFinite(amount) && amount > 0);
     return values.length ? Math.min(...values) : 50;
   }, [amountPresets]);
 
   const hasInput = amountInput.trim().length > 0;
   const isBelowMinimum = hasInput && amountValue > 0 && amountValue < minimumAmount;
-  const canPay = amountValue >= minimumAmount;
+  const canPay = amountValue >= minimumAmount && !!selectedMethod;
 
-  const handleMethodSelect = (methodId: 'rub' | 'crypto') => {
-    setSelectedMethod(methodId);
+  const handleMethodSelect = (systemName: string) => {
+    setSelectedSystem(systemName);
+    setSubmitError(null);
     setStep(2);
   };
 
@@ -180,9 +276,25 @@ export default function PaymentPage({ onBack }: PaymentPageProps) {
     setSelectedPreset(null);
   };
 
-  const handlePay = () => {
-    if (amountValue <= 0) return;
+  const handlePay = async () => {
+    if (!canPay || !selectedMethod) return;
+
+    setSubmitError(null);
+    setCreatedPaymentUrl('');
+    setIsCreatingPayment(true);
     setStep(3);
+
+    try {
+      const paymentUrl = await createPayment(selectedMethod.system, amountValue);
+      setCreatedPaymentUrl(paymentUrl);
+      if (typeof window !== 'undefined') {
+        window.location.assign(paymentUrl);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('common.error_prefix');
+      setSubmitError(message);
+      setIsCreatingPayment(false);
+    }
   };
 
   if (isLoading) {
@@ -220,26 +332,18 @@ export default function PaymentPage({ onBack }: PaymentPageProps) {
 
   return (
     <div className="payment-page">
-      <header className="payment-mobile-header">
-        <button className="back-button" onClick={() => onBack?.()} aria-label={t('common.back')}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M19 12H5M5 12L12 19M5 12L12 5"></path>
-          </svg>
-        </button>
-        <div className="header-title">{t('payment.title')}</div>
-        <div className="header-spacer"></div>
-      </header>
-
       <div className="payment-progress">
         {[1, 2, 3].map((index) => (
           <div
             key={index}
             className={`payment-progress-segment ${step >= index ? 'active' : ''}`}
             onClick={() => {
-              if (index < step) setStep(index as PaymentStep);
+              if (index < step && !isCreatingPayment) {
+                setStep(index as PaymentStep);
+              }
             }}
             role="button"
-            tabIndex={index < step ? 0 : -1}
+            tabIndex={index < step && !isCreatingPayment ? 0 : -1}
             aria-label={`Step ${index}`}
           />
         ))}
@@ -257,14 +361,29 @@ export default function PaymentPage({ onBack }: PaymentPageProps) {
           <p className="payment-step-subtitle">{t('payment.step_method_subtitle')}</p>
 
           <div className="payment-methods">
+            {isSystemsLoading ? <div className="payment-method-card payment-method-card-loading">...</div> : null}
             {paymentMethods.map((method) => (
               <button
                 key={method.id}
                 type="button"
-                className={`payment-method-card ${selectedMethod === method.id ? 'active' : ''}`}
-                onClick={() => handleMethodSelect(method.id)}
+                className={`payment-method-card ${selectedSystem === method.system ? 'active' : ''}`}
+                onClick={() => handleMethodSelect(method.system)}
               >
-                <div className="payment-method-icon">{method.icon}</div>
+                <div className="payment-method-icon">
+                  {method.crypto ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <circle cx="12" cy="12" r="9"></circle>
+                      <path d="M8 11h6a2 2 0 0 1 0 4H9.5a2 2 0 0 0 0 4H14"></path>
+                      <path d="M12 7v10"></path>
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="3" y="6" width="18" height="12" rx="2"></rect>
+                      <path d="M3 10H21"></path>
+                      <circle cx="7" cy="14" r="1.5" fill="currentColor"></circle>
+                    </svg>
+                  )}
+                </div>
                 <div className="payment-method-info">
                   <div className="payment-method-title">{method.title}</div>
                   <div className="payment-method-subtitle">{method.subtitle}</div>
@@ -288,6 +407,7 @@ export default function PaymentPage({ onBack }: PaymentPageProps) {
           </div>
           <h2 className="payment-step-title">{t('payment.step_amount_title')}</h2>
           <p className="payment-step-subtitle">{t('payment.step_amount_subtitle')}</p>
+          <div className="payment-selected-method">{selectedMethod?.system || ''}</div>
 
           <div className="payment-amounts">
             {amountPresets.map((preset, index) => (
@@ -296,7 +416,7 @@ export default function PaymentPage({ onBack }: PaymentPageProps) {
                 type="button"
                 className={`payment-amount-chip ${amountValue === preset.amount ? 'active' : ''}`}
                 onClick={() => handlePresetSelect(preset)}
-                style={{ animationDelay: `${index * 0.08}s` }}
+                style={{ animationDelay: `${index * 0.06}s` }}
               >
                 <span>{formatNumber(preset.amount)} {currency.code}</span>
                 {preset.bonus > 0 ? (
@@ -334,7 +454,7 @@ export default function PaymentPage({ onBack }: PaymentPageProps) {
             <div className="payment-calc-row">
               <span>{t('payment.calc_bonus')}</span>
               <span className="payment-calc-bonus">
-                {isBonusLoading ? '…' : formatNumber(bonusValue)} {currency.code}
+                {isBonusLoading ? '...' : formatNumber(bonusValue)} {currency.code}
               </span>
             </div>
             <div className="payment-calc-row total">
@@ -350,7 +470,7 @@ export default function PaymentPage({ onBack }: PaymentPageProps) {
             onClick={handlePay}
           >
             {t('payment.pay_button')}
-            <span className="payment-cta-arrow">›</span>
+            <span className="payment-cta-arrow">&gt;</span>
           </button>
 
           <div className="payment-step-note">
@@ -361,18 +481,37 @@ export default function PaymentPage({ onBack }: PaymentPageProps) {
 
       {step === 3 && (
         <div className="payment-step">
-          <div className="payment-spinner"></div>
-          <h2 className="payment-step-title">{t('payment.step_processing_title')}</h2>
-          <p className="payment-step-subtitle">{t('payment.step_processing_subtitle')}</p>
+          {!submitError ? (
+            <>
+              <div className="payment-spinner"></div>
+              <h2 className="payment-step-title">{t('payment.step_processing_title')}</h2>
+              <p className="payment-step-subtitle">{t('payment.step_processing_subtitle')}</p>
 
-          <div className="payment-details-card">
-            <div className="payment-details-label">{t('payment.details_title')}</div>
-            <div className="payment-details-name">{t('payment.details_name')}</div>
-            <div className="payment-details-amount">{formatNumber(amountValue)} {currency.code}</div>
-          </div>
+              <div className="payment-details-card">
+                <div className="payment-details-label">{t('payment.details_title')}</div>
+                <div className="payment-details-name">{selectedMethod?.system || t('payment.details_name')}</div>
+                <div className="payment-details-amount">{formatNumber(amountValue)} {currency.code}</div>
+                {createdPaymentUrl ? (
+                  <a className="payment-manual-link" href={createdPaymentUrl} target="_blank" rel="noreferrer">
+                    {createdPaymentUrl}
+                  </a>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="payment-step-title">{t('common.error_prefix')}</h2>
+              <p className="payment-step-subtitle">{submitError}</p>
+              <button type="button" className="payment-cta" onClick={handlePay}>
+                {t('payment.pay_button')}
+              </button>
+              <button type="button" className="payment-cta payment-cta-secondary" onClick={() => setStep(2)}>
+                {t('common.back')}
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
   );
 }
-

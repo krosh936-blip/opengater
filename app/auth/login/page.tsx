@@ -283,58 +283,48 @@ export default function LoginPage() {
       throw new Error(t('auth.login_error'));
     }
     saveAuthTokens(tokens, source);
+    await resolveAndStoreAuthLabel(tokens.access_token, source, labelHint, null);
 
-    let userInfo: UserInfo | null = null;
-    let userInfoError: Error | null = null;
-    try {
-      userInfo = await fetchUserInfoByToken(tokens.access_token);
-    } catch (err) {
-      userInfo = null;
-      userInfoError = err instanceof Error ? err : new Error('user_info_failed');
+    // Primary path: exchange auth access token into user token via user_id.
+    let userId: number | null = decodeUserIdFromJwt(tokens.access_token);
+    if (!userId) {
+      try {
+        const verificationData = await verifyAuthToken(tokens.access_token);
+        userId = extractUserIdFromRecord(verificationData);
+      } catch {
+        userId = null;
+      }
     }
-
-    await resolveAndStoreAuthLabel(tokens.access_token, source, labelHint, userInfo);
-
-    if (userInfo) {
-      setUserToken(tokens.access_token);
+    if (!userId) {
+      try {
+        userId = await fetchAuthUserId(tokens.access_token);
+      } catch {
+        userId = null;
+      }
+    }
+    if (userId) {
+      const token = await authUserById(userId);
+      setUserToken(token);
+      localStorage.setItem('user_id', String(userId));
       window.location.href = '/';
       return;
     }
-    if (userInfoError && /недействительный токен|401|403/i.test(userInfoError.message)) {
-      throw new Error(t('auth.login_error'));
-    }
-    // Если JWT не подходит для основного API — пробуем получить legacy token.
 
-    let userId: number | null = null;
-    let verificationData: Record<string, unknown> | null = null;
+    // Fallback: in some environments access_token is already a user token.
+    let userInfo: UserInfo | null = null;
     try {
-      verificationData = await verifyAuthToken(tokens.access_token);
-      userId = extractUserIdFromRecord(verificationData);
+      userInfo = await fetchUserInfoByToken(tokens.access_token);
     } catch {
-      userId = null;
+      userInfo = null;
     }
-
-    if (!userId) {
-      userId = decodeUserIdFromJwt(tokens.access_token);
-    }
-
-    if (!userId) {
-      userId = await fetchAuthUserId(tokens.access_token);
-    }
-
-    if (!userId) {
-      const rawAuthId = verificationData?.user_id ?? verificationData?.sub;
-      if (typeof rawAuthId === 'string' && rawAuthId && !/^\d+$/.test(rawAuthId)) {
-        // UUID из auth-бэкенда: сохраняем access_token как user_token.
-        setUserToken(tokens.access_token);
-        window.location.href = '/';
-        return;
-      }
+    if (!userInfo) {
       throw new Error(t('auth.login_error'));
     }
-
-    const token = await authUserById(userId);
-    setUserToken(token);
+    setUserToken(tokens.access_token);
+    if (userInfo.id) {
+      localStorage.setItem('user_id', String(userInfo.id));
+    }
+    await resolveAndStoreAuthLabel(tokens.access_token, source, labelHint, userInfo);
     window.location.href = '/';
   };
 
@@ -403,7 +393,7 @@ export default function LoginPage() {
       if (data.type === 'auth_success' && data.access_token) {
         cleanup(pollTimer);
         handleAuthTokens(
-          { access_token: data.access_token, refresh_token: data.refresh_token, token_type: data.token_type },
+          { access_token: data.access_token, refresh_token: data.refresh_token || '', token_type: data.token_type },
           'telegram'
         ).catch((err) => {
           setError(err instanceof Error ? err.message : t('auth.telegram_error'));
@@ -515,6 +505,7 @@ export default function LoginPage() {
         const token = await authUserById(userId);
         clearAuthTokens();
         setUserToken(token);
+        localStorage.setItem('user_id', String(userId));
         window.location.href = '/';
         return;
       }
@@ -615,64 +606,8 @@ export default function LoginPage() {
         window.location.href = '/';
         return;
       }
-      if (!tokens.access_token) {
-        throw new Error(t('auth.login_error'));
-      }
-
-      // Сохраняем auth-токен для привязки email и повторной авторизации.
-      saveAuthTokens(tokens, 'email');
       storeAuthUserLabels(normalizeLabel(pendingEmail));
-
-      let userInfo: UserInfo | null = null;
-      let userInfoError: Error | null = null;
-      try {
-        userInfo = await fetchUserInfoByToken(tokens.access_token);
-      } catch (err) {
-        userInfo = null;
-        userInfoError = err instanceof Error ? err : new Error('user_info_failed');
-      }
-
-      await resolveAndStoreAuthLabel(tokens.access_token, 'email', pendingEmail, userInfo);
-
-      if (userInfo) {
-        setUserToken(tokens.access_token);
-        window.location.href = '/';
-        return;
-      }
-      if (userInfoError && /недействительный токен|401|403/i.test(userInfoError.message)) {
-        throw new Error(t('auth.login_error'));
-      }
-
-      let userId: number | null = null;
-      let verificationData: Record<string, unknown> | null = null;
-      try {
-        verificationData = await verifyAuthToken(tokens.access_token);
-        userId = extractUserIdFromRecord(verificationData);
-      } catch {
-        userId = null;
-      }
-
-      if (!userId) {
-        userId = decodeUserIdFromJwt(tokens.access_token);
-      }
-
-      if (!userId) {
-        userId = await fetchAuthUserId(tokens.access_token);
-      }
-
-      if (!userId) {
-        const rawAuthId = verificationData?.user_id ?? verificationData?.sub;
-        if (typeof rawAuthId === 'string' && rawAuthId && !/^\d+$/.test(rawAuthId)) {
-          setUserToken(tokens.access_token);
-          window.location.href = '/';
-          return;
-        }
-        throw new Error(t('auth.login_error'));
-      }
-
-      const token = await authUserById(userId);
-      setUserToken(token);
-      window.location.href = '/';
+      await handleAuthTokens(tokens, 'email', pendingEmail);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.login_error'));
     } finally {

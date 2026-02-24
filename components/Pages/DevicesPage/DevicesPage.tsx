@@ -81,7 +81,7 @@ const parsePriceValue = (value: unknown): number | null => {
     if (!matches.length) return null;
     const parsedValues = matches
       .map((item) => parseLocalizedNumber(item[0]))
-      .filter((num) => Number.isFinite(num));
+      .filter((num): num is number => typeof num === 'number' && Number.isFinite(num));
     if (!parsedValues.length) return null;
     if (parsedValues.length === 1) return parsedValues[0];
     return parsedValues.reduce((best, current) =>
@@ -213,6 +213,7 @@ const normalizeTariffResponse = (data: DeviceTariffResponse | unknown, deviceNum
 };
 
 export default function DevicesPage({ onBack }: DevicesPageProps) {
+  void onBack;
   const { t, language } = useLanguage();
   const { user, isLoading, error, isAuthenticated, refreshUser } = useUser();
   const { formatCurrency, currency, currencies, currencyRefreshId } = useCurrency();
@@ -521,16 +522,6 @@ export default function DevicesPage({ onBack }: DevicesPageProps) {
 
   return (
     <div className="devices-page">
-      <header className="devices-mobile-header">
-        <button className="back-button" onClick={onBack}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M19 12H5M5 12L12 19M5 12L12 5"></path>
-          </svg>
-        </button>
-        <div className="header-title">{t('devices.page_title')}</div>
-        <div className="header-spacer"></div>
-      </header>
-
       <div className="hero-section">
         <div className="hero-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

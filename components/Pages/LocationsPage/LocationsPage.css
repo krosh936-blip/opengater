@@ -21,37 +21,6 @@
   color: var(--text-secondary);
 }
 
-.locations-page .locations-mobile-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: env(safe-area-inset-top);
-}
-
-.locations-page .back-button {
-  width: 40px;
-  height: 40px;
-  background: transparent;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--text-primary);
-}
-
-.locations-page .header-title {
-  font-size: 18px;
-  font-weight: 600;
-  flex: 1;
-  text-align: center;
-}
-
-.locations-page .header-spacer {
-  width: 40px;
-  height: 40px;
-}
-
 .locations-page .hero-section {
   text-align: center;
   animation: locationsFadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
@@ -433,10 +402,6 @@
 }
 
 @media (min-width: 768px) {
-  .locations-page .locations-mobile-header {
-    display: none;
-  }
-
   .locations-page .locations-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;

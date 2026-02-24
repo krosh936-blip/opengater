@@ -5,7 +5,6 @@ import SidebarSection from './SidebarSection';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-// РРјРїРѕСЂС‚РёСЂСѓРµРј РєРѕРјРїРѕРЅРµРЅС‚С‹ СЃС‚СЂР°РЅРёС†
 import HomePage from '../Pages/HomePage/HomePage';
 import SubscriptionPage from '../Pages/SubscriptionPage/SubscriptionPage';
 import LocationsPage from '../Pages/LocationsPage/LocationsPage';
@@ -16,9 +15,7 @@ import InstallPage from '../Pages/InstallPage/InstallPage';
 import ProfilePage from '../Pages/ProfilePage/ProfilePage';
 import PaymentPage from '../Pages/PaymentPage/PaymentPage';
 import HistoryPage from '../Pages/HistoryPage/HistoryPage';
-// Р”СЂСѓРіРёРµ СЃС‚СЂР°РЅРёС†С‹ РёРјРїРѕСЂС‚РёСЂСѓР№С‚Рµ РїРѕ РјРµСЂРµ СЃРѕР·РґР°РЅРёСЏ
 
-// РўРёРїС‹ РґР»СЏ РЅР°РІРёРіР°С†РёРѕРЅРЅС‹С… СЌР»РµРјРµРЅС‚РѕРІ
 export type NavItemType = {
   id: string;
   label: string;
@@ -33,7 +30,6 @@ export type SidebarSectionType = {
   items: NavItemType[];
 };
 
-// РўРёРїС‹ РґР»СЏ СЃС‚СЂР°РЅРёС†
 type PageType = 'home' | 'subscription' | 'invite' | 'raffle' | 'locations' | 'devices' | 'help' | 'install' | 'profile' | 'payment' | 'history';
 const ACTIVE_PAGE_STORAGE_KEY = 'opengater_active_page';
 const pageTypes: PageType[] = ['home', 'subscription', 'invite', 'raffle', 'locations', 'devices', 'help', 'install', 'profile', 'payment', 'history'];
@@ -44,13 +40,19 @@ const isPageType = (value: string): value is PageType => pageTypes.includes(valu
 const Sidebar: React.FC = () => {
   const { theme } = useTheme();
   const { t } = useLanguage();
-  const [activeItem, setActiveItem] = useState<PageType>('home'); // default start page
+  const [activeItem, setActiveItem] = useState<PageType>('home');
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem(ACTIVE_PAGE_STORAGE_KEY);
-    if (stored && isPageType(stored)) {
-      setActiveItem(stored);
-    }
+    const timer = window.setTimeout(() => {
+      const stored = window.localStorage.getItem(ACTIVE_PAGE_STORAGE_KEY);
+      if (stored && isPageType(stored)) {
+        setActiveItem(stored);
+      }
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -105,7 +107,6 @@ const Sidebar: React.FC = () => {
     ensureIcon('shortcut icon');
   }, [activeItem, t]);
 
-  // Р¤СѓРЅРєС†РёСЏ СЂРµРЅРґРµСЂР° Р°РєС‚РёРІРЅРѕР№ СЃС‚СЂР°РЅРёС†С‹
   const renderActivePage = () => {
     switch (activeItem) {
       case 'home':
@@ -113,7 +114,7 @@ const Sidebar: React.FC = () => {
       case 'subscription':
         return <SubscriptionPage />;
       case 'invite':
-        return <InvitePage onBack={() => handleNavClick('home')} />;
+        return <InvitePage />;
       case 'raffle':
         return <div className="page-placeholder">{t('nav.raffle')} ({t('common.in_development')})</div>;
       case 'locations':
@@ -127,42 +128,38 @@ const Sidebar: React.FC = () => {
       case 'profile':
         return <ProfilePage onBack={() => handleNavClick('home')} />;
       case 'payment':
-        return <PaymentPage onBack={() => handleNavClick('home')} />;
+        return <PaymentPage />;
       case 'history':
         return <HistoryPage />;
       default:
-        return <HomePage />; // РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РїРѕРєР°Р·С‹РІР°РµРј HomePage
+        return <HomePage />;
     }
   };
   
-  // РћР±СЂР°Р±РѕС‚С‡РёРє РєР»РёРєР° РїРѕ РЅР°РІРёРіР°С†РёРё
   const handleNavClick = (id: PageType) => {
     setActiveItem(id);
-    console.log(`Navigating to: ${id}`);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(ACTIVE_PAGE_STORAGE_KEY, id);
+      window.dispatchEvent(new CustomEvent('app:navigate', { detail: id }));
+    }
   };
   
-  // РћР±СЂР°Р±РѕС‚С‡РёРєРё РґР»СЏ СЃРїРµС†РёС„РёС‡РЅС‹С… РґРµР№СЃС‚РІРёР№
   const handleRaffleClick = () => {
-    console.log('Raffle clicked');
     handleNavClick('raffle');
   };
   
   const handleLocationChange = () => {
-    console.log('Location change');
     handleNavClick('locations');
   };
   
   const handleDevicesClick = () => {
-    console.log('Devices clicked');
     handleNavClick('devices');
   };
   
   const handleSetupRedirect = () => {
-    console.log('Setup redirect');
     handleNavClick('install');
   };
   
-  // РћРїСЂРµРґРµР»СЏРµРј СЃРµРєС†РёРё СЃР°Р№РґР±Р°СЂР° (РІР°С€ РѕСЂРёРіРёРЅР°Р»СЊРЅС‹Р№ РєРѕРґ)
   const sections: SidebarSectionType[] = [
     {
       items: [

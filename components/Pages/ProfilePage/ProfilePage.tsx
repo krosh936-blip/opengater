@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './ProfilePage.css';
 import { useUser } from '@/contexts/UserContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -45,10 +45,12 @@ const normalizeTelegramHandle = (value?: string | null): string => {
 };
 
 export default function ProfilePage({ onBack }: ProfilePageProps) {
+  void onBack;
   const { user, isLoading, error, isAuthenticated, refreshUser } = useUser();
   const { t, language } = useLanguage();
   const { theme } = useTheme();
   const [toast, setToast] = useState<string | null>(null);
+  const [currentTs, setCurrentTs] = useState(() => Date.now());
   const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
   const [linkedTelegram, setLinkedTelegram] = useState<string | null>(null);
   const [telegramLinked, setTelegramLinked] = useState(false);
@@ -97,9 +99,9 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
       : '';
   const initials = getInitials(displayName);
   const uid = user?.id ? String(user.id) : authProfileId || '';
-  const subscriptionActive = !!user && new Date(user.expire).getTime() > Date.now();
+  const subscriptionActive = !!user && new Date(user.expire).getTime() > currentTs;
 
-  const syncAuthProfile = async (token: string) => {
+  const syncAuthProfile = useCallback(async (token: string) => {
     const profile = await fetchAuthProfile(token);
     if (!profile) return null;
     setLinkedEmail(profile.email || null);
@@ -107,9 +109,9 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
     setTelegramLinked(!!profile.telegramLinked || !!profile.telegram);
     setAuthProfileId(profile.id ? String(profile.id) : null);
     return profile;
-  };
+  }, []);
 
-  const applyStoredAuthFallback = () => {
+  const applyStoredAuthFallback = useCallback(() => {
     if (typeof window === 'undefined') return;
     const storedEmail = localStorage.getItem('ga_user_email') || '';
     const storedLabel = localStorage.getItem('auth_user_label') || '';
@@ -127,9 +129,9 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
       setLinkedTelegram(tgCandidate);
       setTelegramLinked(true);
     }
-  };
+  }, [linkedEmail, linkedTelegram]);
 
-  const loadAuthProfile = async () => {
+  const loadAuthProfile = useCallback(async () => {
     if (typeof window === 'undefined') return;
     const token = getAuthToken();
     if (!token) {
@@ -143,16 +145,28 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
     if (!profile) {
       applyStoredAuthFallback();
     }
-  };
+  }, [applyStoredAuthFallback, syncAuthProfile]);
 
   useEffect(() => {
-    loadAuthProfile().catch(() => {});
     const handleFocus = () => {
       loadAuthProfile().catch(() => {});
     };
+    const timer = window.setTimeout(handleFocus, 0);
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [isAuthenticated, user?.id]);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isAuthenticated, user?.id, loadAuthProfile]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentTs(Date.now());
+    }, 60 * 1000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -232,7 +246,7 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [refreshUser, t]);
+  }, [allowedOrigins, loadAuthProfile, refreshUser, syncAuthProfile, t]);
 
   const openEmailLinkPopup = (mode: 'add' | 'change') => {
     const token = getAuthToken();
@@ -304,10 +318,6 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
     }
   };
 
-  const handleComingSoon = () => {
-    setToast(t('common.in_development'));
-  };
-
   if (isLoading) {
     return (
       <div className="profile-page loading">
@@ -343,16 +353,6 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
 
   return (
     <div className="profile-page">
-      <header className="profile-mobile-header">
-        <button className="back-button" onClick={onBack}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M19 12H5M5 12L12 19M5 12L12 5"></path>
-          </svg>
-        </button>
-        <div className="header-title">{t('profile.edit_profile')}</div>
-        <div className="header-spacer"></div>
-      </header>
-
       <div className="profile-page-card">
         <div className="profile-page-header">
           <div className="profile-page-avatar">{initials}</div>
@@ -444,17 +444,23 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
                 <span className="auth-method-value muted">{t('profile.telegram_linked')}</span>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <button type="button" className="auth-method-row" onClick={openTelegramLinkPopup}>
+              <div className="auth-method-icon tg-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20.665 3.717l-17.73 6.837c-1.21.486-1.203 1.161-.222 1.462l4.552 1.42 10.532-6.645c.498-.303.953-.14.579.192l-8.533 7.701h-.002l.002.001-.314 4.692c.46 0 .663-.211.921-.46l2.211-2.15 4.599 3.397c.848.467 1.457.227 1.668-.787l3.019-14.228c.309-1.239-.473-1.8-1.282-1.432z" />
+                </svg>
+              </div>
+              <div className="auth-method-info">
+                <span className="auth-method-label">Telegram</span>
+                <span className="auth-method-value muted">{t('profile.add_telegram')}</span>
+              </div>
+              <svg className="auth-method-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          )}
         </div>
-
-        {!authInfo.telegramLinked && !authInfo.telegram && (
-          <button type="button" className="tg-link-btn" onClick={openTelegramLinkPopup}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20.665 3.717l-17.73 6.837c-1.21.486-1.203 1.161-.222 1.462l4.552 1.42 10.532-6.645c.498-.303.953-.14.579.192l-8.533 7.701h-.002l.002.001-.314 4.692c.46 0 .663-.211.921-.46l2.211-2.15 4.599 3.397c.848.467 1.457.227 1.668-.787l3.019-14.228c.309-1.239-.473-1.8-1.282-1.432z" />
-            </svg>
-            {t('profile.add_telegram')}
-          </button>
-        )}
       </div>
 
       {toast && <div className="toast">{toast}</div>}

@@ -298,6 +298,17 @@ img {
   }
 }
 
+@media (max-width: 767px) {
+  .devices-mobile-header,
+  .locations-mobile-header,
+  .invite-mobile-header,
+  .profile-mobile-header,
+  .payment-mobile-header,
+  .install-mobile-header {
+    display: none !important;
+  }
+}
+
 @media (min-width: 1240px) {
   .container {
     max-width: 1150px;
