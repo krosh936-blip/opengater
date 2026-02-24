@@ -18,7 +18,7 @@ import {
   verifyAuthToken,
   verifyEmailAuthCode,
 } from '@/lib/api';
-import { AUTH_POPUP_ORIGIN, TELEGRAM_BOT_USERNAME, TELEGRAM_OAUTH_URL } from '@/lib/appConfig';
+import { AUTH_POPUP_ORIGIN, SERVICE_NAME, TELEGRAM_BOT_USERNAME, TELEGRAM_OAUTH_URL } from '@/lib/appConfig';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function LoginPage() {
@@ -345,7 +345,7 @@ export default function LoginPage() {
     const lang = authLanguage || 'ru';
     const storedTheme = localStorage.getItem('opengater-theme');
     const theme = storedTheme === 'light' ? 'light' : 'dark';
-    const statePayload = { service_name: 'Opengater' };
+    const statePayload = { service_name: SERVICE_NAME };
     const encodedState = btoa(JSON.stringify(statePayload));
     const url = new URL(AUTH_POPUP_ORIGIN);
     url.searchParams.set('lang', lang);
@@ -525,7 +525,7 @@ export default function LoginPage() {
         }
         setIsSubmitting(true);
         // Отправляем код подтверждения на email.
-        await sendEmailAuthCode(value, 'Opengater', authLanguage);
+        await sendEmailAuthCode(value, SERVICE_NAME, authLanguage);
         setPendingEmail(value);
         setCodeInput('');
         setStep('code');
@@ -685,7 +685,7 @@ export default function LoginPage() {
     setError('');
     setIsSubmitting(true);
     try {
-      await sendEmailAuthCode(pendingEmail, 'Opengater', authLanguage);
+      await sendEmailAuthCode(pendingEmail, SERVICE_NAME, authLanguage);
       setResendIn(30);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.login_error'));

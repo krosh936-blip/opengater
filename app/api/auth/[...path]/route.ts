@@ -1,23 +1,29 @@
 import { NextRequest } from 'next/server';
+import { AUTH_UPSTREAMS, CORS_ALLOWED_ORIGINS } from '@/lib/appConfig';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const AUTH_UPSTREAM_COOKIE_KEY = 'opengater_auth_upstream';
 
-const UPSTREAM_BASE_URLS = [
-  'https://reauth.cloud/api',
-  'https://reauth.cloud',
-  'https://cdn.opngtr.ru/api',
-  'https://opngtr.com/api',
-  'https://cdn.opngtr.ru',
-  'https://opngtr.com',
-  // 'https://auth.bot.lk.eutochkin.com',
-  // 'https://auth.bot.lk.eutochkin.com/api',
-  // 'https://api.bot.eutochkin.com/api',
-  // 'https://api.bot.eutochkin.com',
-  // 'https://auth.bot.eutochkin.com',
-];
+const UPSTREAM_BASE_URLS = AUTH_UPSTREAMS;
+
+const applyCorsHeaders = (req: NextRequest, headers: Headers) => {
+  const origin = req.headers.get('origin');
+  if (!origin) return;
+  if (!CORS_ALLOWED_ORIGINS.length) return;
+
+  const allowAll = CORS_ALLOWED_ORIGINS.includes('*');
+  const allowOrigin = allowAll || CORS_ALLOWED_ORIGINS.includes(origin);
+  if (!allowOrigin) return;
+
+  headers.set('Access-Control-Allow-Origin', allowAll ? '*' : origin);
+  headers.set('Access-Control-Allow-Credentials', 'true');
+  headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, Accept');
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  const vary = headers.get('Vary');
+  headers.set('Vary', vary ? `${vary}, Origin` : 'Origin');
+};
 
 // Hop-by-hop заголовки нельзя проксировать.
 const hopByHopHeaders = new Set([
@@ -87,6 +93,7 @@ const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
         `${AUTH_UPSTREAM_COOKIE_KEY}=${encoded}; Path=/; Max-Age=86400; SameSite=Lax`
       );
     }
+    applyCorsHeaders(req, responseHeaders);
 
     const body = await upstreamResponse.arrayBuffer();
 
@@ -153,11 +160,13 @@ const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
   }
 
   const message = lastError?.message || 'Unknown proxy error';
+  const responseHeaders = new Headers({ 'Content-Type': 'application/json' });
+  applyCorsHeaders(req, responseHeaders);
   return new Response(
     JSON.stringify({ error: 'Proxy request failed', message }),
     {
       status: 502,
-      headers: { 'Content-Type': 'application/json' },
+      headers: responseHeaders,
     }
   );
 };
@@ -180,4 +189,10 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   return proxyRequest(req, []);
+}
+
+export async function OPTIONS(req: NextRequest) {
+  const headers = new Headers();
+  applyCorsHeaders(req, headers);
+  return new Response(null, { status: 204, headers });
 }

@@ -1,19 +1,10 @@
-import { AUTH_PROFILE_ENABLED } from '@/lib/appConfig';
+import { AUTH_PROFILE_ENABLED, AUTH_UPSTREAMS } from '@/lib/appConfig';
 
 const API_PROXY_BASE_URL = '/api/proxy';
-const AUTH_BACKEND_DIRECT_URL = 'https://reauth.cloud/api';
-const AUTH_BACKEND_ALT_URL = 'https://reauth.cloud';
-const AUTH_BACKEND_FALLBACK_URL = 'https://cdn.opngtr.ru/api';
-const AUTH_BACKEND_NEW_URL = 'https://opngtr.com/api';
-const AUTH_BACKEND_NEW_API_URL = 'https://cdn.opngtr.ru';
 const AUTH_BACKEND_PROXY_URL = '/api/auth';
 const AUTH_BACKEND_URLS = [
   AUTH_BACKEND_PROXY_URL,
-  AUTH_BACKEND_NEW_URL,
-  AUTH_BACKEND_NEW_API_URL,
-  AUTH_BACKEND_DIRECT_URL,
-  AUTH_BACKEND_ALT_URL,
-  AUTH_BACKEND_FALLBACK_URL,
+  ...AUTH_UPSTREAMS,
 ];
 
 const CACHE_PREFIX = 'opengater_cache';
@@ -658,9 +649,13 @@ export const fetchPaymentTariffs = async (): Promise<PaymentTariff[]> => {
     .filter((item): item is PaymentTariff => !!item);
 };
 
-export const calculateDaysRemaining = (expireDate: string): string => {
+export const calculateDaysRemaining = (expireDate?: string | null): string => {
+  if (typeof expireDate !== 'string') return '';
+  const normalizedExpireDate = expireDate.trim();
+  if (!normalizedExpireDate) return '';
+
   const msPerDay = 1000 * 60 * 60 * 24;
-  const dateOnlyMatch = expireDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const dateOnlyMatch = normalizedExpireDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   const expireMs = dateOnlyMatch
     ? Date.UTC(
         Number(dateOnlyMatch[1]),
@@ -671,7 +666,7 @@ export const calculateDaysRemaining = (expireDate: string): string => {
         59,
         999
       )
-    : new Date(expireDate).getTime();
+    : new Date(normalizedExpireDate).getTime();
   if (!Number.isFinite(expireMs)) return '';
 
   const diffTime = expireMs - Date.now();

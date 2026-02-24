@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { API_UPSTREAMS } from '@/lib/appConfig';
+import { API_UPSTREAMS, CORS_ALLOWED_ORIGINS } from '@/lib/appConfig';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,6 +20,23 @@ const hopByHopHeaders = new Set([
   'host',
   'content-length',
 ]);
+
+const applyCorsHeaders = (req: NextRequest, headers: Headers) => {
+  const origin = req.headers.get('origin');
+  if (!origin) return;
+  if (!CORS_ALLOWED_ORIGINS.length) return;
+
+  const allowAll = CORS_ALLOWED_ORIGINS.includes('*');
+  const allowOrigin = allowAll || CORS_ALLOWED_ORIGINS.includes(origin);
+  if (!allowOrigin) return;
+
+  headers.set('Access-Control-Allow-Origin', allowAll ? '*' : origin);
+  headers.set('Access-Control-Allow-Credentials', 'true');
+  headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, Accept');
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  const vary = headers.get('Vary');
+  headers.set('Vary', vary ? `${vary}, Origin` : 'Origin');
+};
 
 const buildUpstreamUrl = (baseUrl: string, req: NextRequest, pathParts: string[] = []) => {
   let safeParts = Array.isArray(pathParts) ? pathParts : [String(pathParts)];
@@ -77,6 +94,8 @@ const buildResponse = async (req: NextRequest, upstreamResponse: Response, baseU
       `${UPSTREAM_COOKIE_KEY}=${encoded}; Path=/; Max-Age=86400; SameSite=Lax`
     );
   }
+
+  applyCorsHeaders(req, responseHeaders);
 
   const body = await upstreamResponse.arrayBuffer();
   return new Response(body, {
@@ -149,11 +168,13 @@ const proxyRequest = async (req: NextRequest, pathParts: string[]) => {
   }
 
   const message = lastError?.message || 'Unknown proxy error';
+  const responseHeaders = new Headers({ 'Content-Type': 'application/json' });
+  applyCorsHeaders(req, responseHeaders);
   return new Response(
     JSON.stringify({ error: 'Proxy request failed', message }),
     {
       status: 502,
-      headers: { 'Content-Type': 'application/json' },
+      headers: responseHeaders,
     }
   );
 };
@@ -176,4 +197,10 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   return proxyRequest(req, []);
+}
+
+export async function OPTIONS(req: NextRequest) {
+  const headers = new Headers();
+  applyCorsHeaders(req, headers);
+  return new Response(null, { status: 204, headers });
 }

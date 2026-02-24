@@ -1,24 +1,29 @@
-﻿# Конфигурация проекта
+# Конфигурация проекта
 
-Этот файл — короткая шпаргалка, где меняются основные параметры без поиска по коду.
+Основные параметры теперь задаются через `.env`/`.env.local`.
 
-## Где переключать API
-Файл: `lib/appConfig.ts`
+## Быстрый старт
+1. Скопируйте `.env.example` в `.env.local`.
+2. Заполните нужные значения.
+3. Перезапустите dev-сервер.
 
-В блоке `ACTIVE_PROFILE` должна быть активна ровно одна строка:
-```ts
-export const ACTIVE_PROFILE = PROFILE_EUTOCHKIN;
-// export const ACTIVE_PROFILE = PROFILE_CDN;
-```
+## Ключевые переменные
+- `API_URL` — основной upstream для `/api/proxy` (если без `/api`, добавится автоматически).
+- `API_MIRROR_URL` — зеркало API как fallback.
+- `API_UPSTREAMS` — дополнительные API upstreams через запятую.
+- `AUTH_URL` — основной origin auth-сервиса (например, `https://reauth.cloud`).
+- `AUTH_MIRROR_URL` — зеркало auth-сервиса.
+- `AUTH_UPSTREAMS` — дополнительные auth upstreams через запятую.
+- `SERVICE_NAME` — имя сервиса для auth payload (`service_name`).
+- `APP_HOST` — хост приложения.
+- `APP_PORT` — порт приложения.
+- `CORS` — список origin через запятую (доступен в конфиге для серверного использования).
+- `CORS` применяется в прокси-роутах `/api/proxy` и `/api/auth` (включая `OPTIONS`).
 
-## Что меняется при переключении профиля
-- Апстримы для прокси `/api/proxy`.
-- Telegram‑бот и OAuth‑ссылка для входа/привязки.
+## Дополнительно
+- `API_PROFILE` — профиль по умолчанию (`cdn` или `eutochkin`), если `API_URL` не задан.
+- `AUTH_PROFILE_ENABLED` — включает/выключает auth-профиль (`true/false`).
+- `TELEGRAM_BOT_USERNAME` — бот для fallback-кнопки Telegram.
+- `TELEGRAM_OAUTH_URL` — fallback-ссылка Telegram OAuth.
 
-## Что означает каждая настройка
-- `API_UPSTREAMS` — список базовых URL, куда проксируются запросы.
-- `TELEGRAM_BOT_USERNAME` — бот для кнопки логина/привязки Telegram.
-- `TELEGRAM_OAUTH_URL` — прямая ссылка Telegram OAuth (fallback).
-- `AUTH_POPUP_ORIGIN` — домен окна авторизации (email/telegram).
-
-Если нужно добавить новый профиль — скопируйте один из `PROFILE_*` и подставьте свои значения.
+Все переменные читаются в `lib/appConfig.ts`.
