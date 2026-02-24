@@ -243,7 +243,7 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
   const showDetails = !isLocationsLoading && locations.length > 0;
 
   const getLocationName = (loc: LocationItem) => {
-    const record = loc as Record<string, unknown>;
+    const record = loc as unknown as Record<string, unknown>;
     const apiLang = language === 'am' ? 'hy' : language;
     const apiName =
       (typeof record[`name_${apiLang}`] === 'string' && String(record[`name_${apiLang}`])) ||
@@ -263,7 +263,7 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
   };
 
   const getLocationDescription = (loc: LocationItem) => {
-    const record = loc as Record<string, unknown>;
+    const record = loc as unknown as Record<string, unknown>;
     const apiLang = language === 'am' ? 'hy' : language;
     const apiDescription =
       (typeof record[`description_${apiLang}`] === 'string' && String(record[`description_${apiLang}`])) ||
@@ -278,6 +278,17 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
       LOCATION_LOCALIZED[loc.id]?.ru ||
       LOCATION_LOCALIZED[loc.id]?.am;
     return fallback?.description || loc.description || '';
+  };
+
+  const toTwemojiUrl = (value: string): string | null => {
+    const normalized = value.trim();
+    if (!normalized) return null;
+    const codepoints = Array.from(normalized)
+      .map((char) => char.codePointAt(0)?.toString(16))
+      .filter((item): item is string => !!item)
+      .join('-');
+    if (!codepoints) return null;
+    return `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${codepoints}.svg`;
   };
 
 
@@ -365,52 +376,63 @@ export default function LocationsPage({ onBack }: LocationsPageProps) {
             <p>{t('common.loading')}</p>
           </div>
         ) : (
-          locations.map((loc, index) => (
-            <div
-              key={loc.id}
-              className={`location-card ${loc.selected ? 'selected' : ''}`}
-              style={{ animationDelay: `${index * 0.04}s` }}
-              onClick={() => toggleLocation(loc.id)}
-            >
-              <div className="location-header">
-                <div className="location-info">
-                  <div className="location-flag">{loc.flag || '🏳️'}</div>
-                  <div className="location-details">
-                    <h3>{getLocationName(loc)}</h3>
-                    <p>{getLocationDescription(loc)}</p>
+          locations.map((loc, index) => {
+            const flagText = loc.flag || '🏳️';
+            const flagUrl = toTwemojiUrl(flagText);
+
+            return (
+              <div
+                key={loc.id}
+                className={`location-card ${loc.selected ? 'selected' : ''}`}
+                style={{ animationDelay: `${index * 0.04}s` }}
+                onClick={() => toggleLocation(loc.id)}
+              >
+                <div className="location-header">
+                  <div className="location-info">
+                    <div className="location-flag">
+                      {flagUrl ? (
+                        <img className="location-flag-image" src={flagUrl} alt={flagText} loading="lazy" />
+                      ) : (
+                        flagText
+                      )}
+                    </div>
+                    <div className="location-details">
+                      <h3>{getLocationName(loc)}</h3>
+                      <p>{getLocationDescription(loc)}</p>
+                    </div>
+                  </div>
+                  <div className="location-checkbox">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
                   </div>
                 </div>
-                <div className="location-checkbox">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
+                <div className="location-features">
+                  <div className="location-feature">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="12" y1="1" x2="12" y2="23"></line>
+                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                    <span className="location-feature-value">+{formatPrice(loc.price || 0)}</span>
+                  </div>
+                  <div className="location-feature">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 3v18h18"></path>
+                      <path d="M18 9l-5 5-4-4-6 6"></path>
+                    </svg>
+                    <span className="location-feature-value">{loc.speed || 0} Gbps</span>
+                  </div>
+                  <div className="location-feature">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                    </svg>
+                    <span className="location-feature-value">99.9%</span>
+                  </div>
                 </div>
               </div>
-              <div className="location-features">
-                <div className="location-feature">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="12" y1="1" x2="12" y2="23"></line>
-                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                  </svg>
-                  <span className="location-feature-value">+{formatPrice(loc.price || 0)}</span>
-                </div>
-                <div className="location-feature">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3 3v18h18"></path>
-                    <path d="M18 9l-5 5-4-4-6 6"></path>
-                  </svg>
-                  <span className="location-feature-value">{loc.speed || 0} Gbps</span>
-                </div>
-                <div className="location-feature">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-                  </svg>
-                  <span className="location-feature-value">99.9%</span>
-                </div>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

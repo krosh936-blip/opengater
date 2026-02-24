@@ -175,6 +175,12 @@
   flex-shrink: 0;
 }
 
+.locations-page .location-flag-image {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+
 [data-theme="light"] .locations-page .location-flag {
   background: var(--bg-primary);
   border: 1px solid var(--border);

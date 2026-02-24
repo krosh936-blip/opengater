@@ -60,6 +60,7 @@ const Header: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAtTop, setIsAtTop] = useState(true);
   const [currentTs, setCurrentTs] = useState(() => Date.now());
   const [activePage, setActivePage] = useState<PageType>('home');
   const [authLabelFallback, setAuthLabelFallback] = useState('');
@@ -233,6 +234,37 @@ const Header: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const getScrollTop = () => {
+      const main = document.querySelector('.main-content');
+      const mainScroll = main instanceof HTMLElement ? main.scrollTop : 0;
+      const windowScroll = window.scrollY || document.documentElement.scrollTop || 0;
+      return Math.max(windowScroll, mainScroll);
+    };
+
+    const updateHeaderVisibility = () => {
+      const nextIsAtTop = getScrollTop() <= 10;
+      setIsAtTop((prev) => (prev === nextIsAtTop ? prev : nextIsAtTop));
+    };
+
+    updateHeaderVisibility();
+    window.addEventListener('scroll', updateHeaderVisibility, { passive: true });
+
+    const main = document.querySelector('.main-content');
+    if (main instanceof HTMLElement) {
+      main.addEventListener('scroll', updateHeaderVisibility, { passive: true });
+    }
+
+    return () => {
+      window.removeEventListener('scroll', updateHeaderVisibility);
+      if (main instanceof HTMLElement) {
+        main.removeEventListener('scroll', updateHeaderVisibility);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const timer = window.setInterval(() => {
       setCurrentTs(Date.now());
     }, 60 * 1000);
@@ -257,7 +289,7 @@ const Header: React.FC = () => {
       <header className="header">
         <div className="header-content">
           <Logo />
-          <div className="header-actions">
+          <div className={`header-actions ${isAtTop ? '' : 'is-hidden'}`}>
             <button
               className="theme-switcher"
               type="button"
@@ -311,7 +343,7 @@ const Header: React.FC = () => {
         )}
 
         <button
-          className="profile-avatar mobile-profile-avatar"
+          className={`profile-avatar mobile-profile-avatar ${isAtTop ? '' : 'is-hidden'}`}
           id="profile-avatar"
           title="Profile"
           onClick={handleOpenMobileMenu}

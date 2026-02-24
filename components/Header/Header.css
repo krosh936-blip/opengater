@@ -127,6 +127,18 @@
   display: inline-block;
 }
 
+@media (min-width: 768px) and (max-width: 1015px) {
+  .header-content {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+@media (min-width: 1016px) and (max-width: 1239px) {
+  .header-content {
+    padding-right: 34px;
+  }
+}
 
 @media (min-width: 768px) {
   .header {
@@ -139,7 +151,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 18px;
+  padding: 0 20px;
   padding-top: env(safe-area-inset-top);
   margin-bottom: 16px;
   background: transparent;
@@ -224,8 +236,8 @@ body:not(.theme-transition) .mobile-header .profile-avatar {
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border);
     height: calc(66px + env(safe-area-inset-top));
-    padding-left: max(18px, env(safe-area-inset-left));
-    padding-right: max(18px, env(safe-area-inset-right));
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
   }
 
   .page-layout {

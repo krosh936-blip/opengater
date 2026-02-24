@@ -1,5 +1,5 @@
 ﻿'use client'
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import './HomePage.css';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUser } from '@/contexts/UserContext';
@@ -16,12 +16,28 @@ export default function HomePage({ onNavigate }: HomePageProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const autoplayRef = useRef<NodeJS.Timeout>();
   const [locations, setLocations] = useState<LocationItem[]>([]);
-  const { currency, currencyRefreshId, formatCurrency, formatMoneyFrom } = useCurrency();
+  const { currency, currencies, currencyRefreshId, formatMoneyFrom } = useCurrency();
 
   const { user, isLoading, error, isAuthenticated } = useUser();
   const { language, t, languageRefreshId } = useLanguage();
 
   const touchStateRef = useRef({ startX: 0, currentX: 0, isDragging: false });
+  const rubCurrency = useMemo(
+    () =>
+      currencies.find((item) => item.code === 'RUB') || {
+        code: 'RUB',
+        symbol: '₽',
+        rate: 1,
+        rounding_precision: 0,
+        id: 1,
+        hidden: false,
+      },
+    [currencies]
+  );
+  const referralPromoAmount = formatMoneyFrom(50, rubCurrency, {
+    showSymbol: false,
+    showCode: true,
+  });
 
   const promoSlides = [
     {
@@ -44,7 +60,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
       id: 2,
       type: 'invite',
       title: t('promo.invite_title'),
-      subtitle: t('promo.invite_subtitle', { amount: formatCurrency(50) }),
+      subtitle: t('promo.invite_subtitle', { amount: referralPromoAmount }),
       background: 'linear-gradient(135deg, #1a4a4a 0%, #2d5a5a 50%, #3a6868 100%)',
       onClick: () => handleReferral(),
       icon: (
