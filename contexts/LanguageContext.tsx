@@ -34,7 +34,7 @@ const LANGUAGE_PENDING_TS_KEY = 'user_language_pending_ts';
 
 const DEFAULT_LANGUAGES: LanguageOption[] = [
   { code: 'ru', label: 'Русский', native: 'Русский', flag: '🇷🇺' },
-  { code: 'en', label: 'English', native: 'English', flag: '🇺🇸' },
+  { code: 'en', label: 'English', native: 'English', flag: '🇬🇧' },
   { code: 'am', label: 'Հայերեն', native: 'Հայերեն', flag: '🇦🇲' },
 ];
 

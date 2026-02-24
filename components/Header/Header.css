@@ -15,7 +15,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 20px;
+  padding: 20px 20px 20px 12px;
   height: 61px;
   margin: 0;
   box-sizing: border-box;
@@ -129,7 +129,7 @@
 
 @media (min-width: 768px) and (max-width: 1015px) {
   .header-content {
-    padding-left: 24px;
+    padding-left: 12px;
     padding-right: 24px;
   }
 }
@@ -238,6 +238,10 @@ body:not(.theme-transition) .mobile-header .profile-avatar {
     height: calc(66px + env(safe-area-inset-top));
     padding-left: max(20px, env(safe-area-inset-left));
     padding-right: max(20px, env(safe-area-inset-right));
+  }
+
+  .mobile-header:not(.mobile-header--inner) .logo {
+    margin-left: -8px;
   }
 
   .page-layout {

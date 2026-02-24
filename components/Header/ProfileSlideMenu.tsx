@@ -27,17 +27,12 @@ const DEFAULT_USER_DATA: UserData = {
   subscriptionActive: false,
 };
 
-const LANGUAGE_SHORT: Record<string, string> = {
-  ru: 'RU',
-  en: 'GB',
-  am: 'AM',
-};
-
-const CURRENCY_SHORT: Record<string, string> = {
-  RUB: 'RU',
-  USD: 'US',
-  AMD: 'AM',
-  TG_STARS: 'TG',
+const CURRENCY_FLAG: Record<string, string> = {
+  RUB: '🇷🇺',
+  USD: '🇺🇸',
+  AMD: '🇦🇲',
+  EUR: '🇪🇺',
+  TG_STARS: '⭐',
 };
 
 const PANEL_SUBTITLE: Record<string, { language: string; currency: string }> = {
@@ -58,6 +53,18 @@ const PANEL_SUBTITLE: Record<string, { language: string; currency: string }> = {
 const currencyLabel = (code: string, symbol: string) => {
   if (symbol && symbol !== code) return symbol;
   return code;
+};
+
+const languageFlag = (code: string, fallback?: string) => {
+  if (fallback) return fallback;
+  if (code === 'ru') return '🇷🇺';
+  if (code === 'en') return '🇬🇧';
+  if (code === 'am') return '🇦🇲';
+  return '🏳️';
+};
+
+const currencyFlag = (code: string) => {
+  return CURRENCY_FLAG[code] || '🏳️';
 };
 
 const ProfileSlideMenu: React.FC<ProfileSlideMenuProps> = ({
@@ -288,7 +295,7 @@ const ProfileSlideMenu: React.FC<ProfileSlideMenuProps> = ({
                 className={`profile-selector-option ${isSelected ? 'selected' : ''}`}
                 onClick={() => handleSelectLanguage(item.code)}
               >
-                <span className="profile-selector-short">{LANGUAGE_SHORT[item.code] || item.code.toUpperCase()}</span>
+                <span className="profile-selector-short">{languageFlag(item.code, item.flag)}</span>
                 <span className="profile-selector-main">
                   <span className="profile-selector-name">{item.native}</span>
                   <span className="profile-selector-meta">{item.label}</span>
@@ -325,7 +332,7 @@ const ProfileSlideMenu: React.FC<ProfileSlideMenuProps> = ({
                 className={`profile-selector-option ${isSelected ? 'selected' : ''}`}
                 onClick={() => handleSelectCurrency(item.code)}
               >
-                <span className="profile-selector-short">{CURRENCY_SHORT[item.code] || item.code.slice(0, 2)}</span>
+                <span className="profile-selector-short">{currencyFlag(item.code)}</span>
                 <span className="profile-selector-main">
                   <span className="profile-selector-name">{item.code}</span>
                   <span className="profile-selector-meta">{currencyLabel(item.code, item.symbol || item.code)}</span>
