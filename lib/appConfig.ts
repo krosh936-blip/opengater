@@ -85,20 +85,19 @@ export const API_UPSTREAMS = unique([
   ...activeProfile.upstreams.map((item) => normalizeApiBase(item)),
 ]);
 
-const defaultAuthUpstreams = ['https://reauth.cloud', 'https://cdn.opngtr.ru', 'https://opngtr.com'].flatMap((value) =>
-  authVariants(value)
-);
-
 const envAuthUpstreams = splitCsv(process.env.AUTH_UPSTREAMS).flatMap((item) => authVariants(item));
 const envAuthPrimary = trimValue(process.env.AUTH_URL || process.env.NEXT_PUBLIC_AUTH_URL);
 const envAuthMirror = trimValue(process.env.AUTH_MIRROR_URL || process.env.AUTH_URL_MIRROR);
-
-export const AUTH_UPSTREAMS = unique([
+const configuredAuthUpstreams = unique([
   ...envAuthUpstreams,
   ...authVariants(envAuthPrimary),
   ...authVariants(envAuthMirror),
-  ...defaultAuthUpstreams,
 ]);
+
+export const AUTH_UPSTREAMS =
+  configuredAuthUpstreams.length > 0
+    ? configuredAuthUpstreams
+    : authVariants('https://reauth.cloud');
 
 export const AUTH_POPUP_ORIGIN = authVariants(envAuthPrimary)[1] || authVariants('https://reauth.cloud')[1] || 'https://reauth.cloud';
 
