@@ -2,9 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import './AuthPage.css';
 import {
+  AUTH_LOGOUT_INTENT_KEY,
   authUserById,
   type AuthTokens,
   type AuthUserProfile,
+  isManualLogoutIntent,
   extractAuthToken,
   fetchAuthProfile,
   fetchAuthUserId,
@@ -113,27 +115,57 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const refreshToken = localStorage.getItem('auth_refresh_token') || localStorage.getItem('ga_refresh_token');
-    if (!refreshToken) return;
-    const storedLabel = localStorage.getItem('auth_user_label') || '';
-    const storedFullName = localStorage.getItem('ga_user_fullname') || '';
-    const storedEmail = localStorage.getItem('ga_user_email') || '';
-    const storedSource = localStorage.getItem('auth_source');
-    const normalizedFullName = normalizeLabel(storedFullName);
-    const normalizedEmail =
-      storedSource === 'telegram'
-        ? normalizeTelegramLabel(storedEmail) || normalizeLabel(storedEmail)
-        : normalizeLabel(storedEmail);
-    const normalizedLabel =
-      storedSource === 'telegram'
-        ? normalizeTelegramLabel(storedLabel) || normalizeLabel(storedLabel)
-        : normalizeLabel(storedLabel);
-    const primary = normalizedFullName || normalizedLabel || normalizedEmail;
-    const secondary =
-      normalizedFullName && normalizedEmail && normalizedFullName !== normalizedEmail ? normalizedEmail : '';
-    setQuickLoginLabel(primary || quickAccountLabel);
-    setQuickLoginSecondary(secondary);
-    setShowQuickLogin(true);
+    const syncQuickLoginState = () => {
+      const refreshToken = localStorage.getItem('auth_refresh_token') || localStorage.getItem('ga_refresh_token');
+      if (!refreshToken || isManualLogoutIntent()) {
+        setShowQuickLogin(false);
+        setQuickLoginLabel(quickAccountLabel);
+        setQuickLoginSecondary('');
+        return;
+      }
+
+      const storedLabel = localStorage.getItem('auth_user_label') || '';
+      const storedFullName = localStorage.getItem('ga_user_fullname') || '';
+      const storedEmail = localStorage.getItem('ga_user_email') || '';
+      const storedSource = localStorage.getItem('auth_source');
+      const normalizedFullName = normalizeLabel(storedFullName);
+      const normalizedEmail =
+        storedSource === 'telegram'
+          ? normalizeTelegramLabel(storedEmail) || normalizeLabel(storedEmail)
+          : normalizeLabel(storedEmail);
+      const normalizedLabel =
+        storedSource === 'telegram'
+          ? normalizeTelegramLabel(storedLabel) || normalizeLabel(storedLabel)
+          : normalizeLabel(storedLabel);
+      const primary = normalizedFullName || normalizedLabel || normalizedEmail;
+      const secondary =
+        normalizedFullName && normalizedEmail && normalizedFullName !== normalizedEmail ? normalizedEmail : '';
+      setQuickLoginLabel(primary || quickAccountLabel);
+      setQuickLoginSecondary(secondary);
+      setShowQuickLogin(true);
+    };
+
+    syncQuickLoginState();
+
+    const onStorage = (event: StorageEvent) => {
+      if (
+        !event.key ||
+        event.key === AUTH_LOGOUT_INTENT_KEY ||
+        event.key === 'auth_refresh_token' ||
+        event.key === 'ga_refresh_token' ||
+        event.key === 'auth_user_label' ||
+        event.key === 'ga_user_fullname' ||
+        event.key === 'ga_user_email' ||
+        event.key === 'auth_source'
+      ) {
+        syncQuickLoginState();
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+    };
   }, [quickAccountLabel]);
 
   useEffect(() => {
@@ -442,6 +474,11 @@ export default function LoginPage() {
 
   const handleQuickLogin = async () => {
     if (typeof window === 'undefined') return;
+    if (isManualLogoutIntent()) {
+      clearAuthTokens();
+      setShowQuickLogin(false);
+      return;
+    }
     const refreshToken = localStorage.getItem('auth_refresh_token') || localStorage.getItem('ga_refresh_token');
     if (!refreshToken) {
       setShowQuickLogin(false);

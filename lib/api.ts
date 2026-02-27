@@ -6,6 +6,8 @@ const AUTH_BACKEND_URLS = [
   AUTH_BACKEND_PROXY_URL,
   ...AUTH_UPSTREAMS,
 ];
+export const AUTH_LOGOUT_INTENT_KEY = 'auth_logout_intent';
+const AUTH_LOGOUT_INTENT_MANUAL = 'manual';
 
 const CACHE_PREFIX = 'opengater_cache';
 const CACHE_TTL = {
@@ -369,9 +371,27 @@ export const getUserToken = (): string | null => {
 
 export const setUserToken = (token: string): void => {
   if (typeof window !== 'undefined') {
+    clearLogoutIntent();
     localStorage.setItem('user_token', token);
     localStorage.setItem('auth_token', token);
   }
+};
+
+export const setManualLogoutIntent = (): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(AUTH_LOGOUT_INTENT_KEY, AUTH_LOGOUT_INTENT_MANUAL);
+  }
+};
+
+export const clearLogoutIntent = (): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(AUTH_LOGOUT_INTENT_KEY);
+  }
+};
+
+export const isManualLogoutIntent = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(AUTH_LOGOUT_INTENT_KEY) === AUTH_LOGOUT_INTENT_MANUAL;
 };
 
 export const removeUserToken = (): void => {
@@ -1716,6 +1736,7 @@ const decodeUserIdFromJwt = (token: string): number | null => {
 
 export const recoverUserTokenFromAuth = async (): Promise<string | null> => {
   if (typeof window === 'undefined') return null;
+  if (isManualLogoutIntent()) return null;
 
   const resolveUserIdFromAccessToken = async (accessToken: string): Promise<number | null> => {
     if (!accessToken) return null;

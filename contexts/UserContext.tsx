@@ -1,7 +1,18 @@
 ﻿'use client'
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { UserInfo, fetchUserInfo, getUserToken, removeUserToken, calculateDaysRemaining, recoverUserTokenFromAuth } from '@/lib/api';
+import {
+  AUTH_LOGOUT_INTENT_KEY,
+  UserInfo,
+  clearLogoutIntent,
+  fetchUserInfo,
+  getUserToken,
+  isManualLogoutIntent,
+  removeUserToken,
+  calculateDaysRemaining,
+  recoverUserTokenFromAuth,
+  setManualLogoutIntent,
+} from '@/lib/api';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface UserContextType {
@@ -68,6 +79,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         setUser(userData);
         setIsAuthenticated(true);
         setError(null);
+        clearLogoutIntent();
         if (typeof window !== 'undefined' && userData?.id) {
           localStorage.setItem('user_id', String(userData.id));
         }
@@ -120,6 +132,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
               setUser(userData);
               setIsAuthenticated(true);
               setError(null);
+              clearLogoutIntent();
               if (typeof window !== 'undefined' && userData?.id) {
                 localStorage.setItem('user_id', String(userData.id));
               }
@@ -168,6 +181,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   }, [loadUser]);
 
   const logout = () => {
+    setManualLogoutIntent();
     removeUserToken();
     setUser(null);
     setIsAuthenticated(false);
@@ -215,6 +229,34 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       window.clearInterval(interval);
     };
   }, [loadUser, user?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.storageArea !== window.localStorage) return;
+      const isIntentChange = event.key === AUTH_LOGOUT_INTENT_KEY;
+      const isTokenChange = event.key === 'user_token' || event.key === 'auth_token';
+      if (!isIntentChange && !isTokenChange) return;
+
+      if (isManualLogoutIntent() || !getUserToken()) {
+        setUser(null);
+        setIsAuthenticated(false);
+        setError(null);
+        if (pathname && !pathname.startsWith('/auth')) {
+          router.replace('/auth/login');
+        }
+        return;
+      }
+
+      loadUser({ silent: true }).catch(() => {});
+    };
+
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [loadUser, pathname, router]);
 
   const daysRemaining = user ? calculateDaysRemaining(user.expire) : '';
 
