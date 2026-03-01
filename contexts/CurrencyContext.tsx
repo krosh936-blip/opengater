@@ -130,17 +130,38 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
 
     const prevServerCode = lastServerCurrencyRef.current;
     const serverChanged = !!prevServerCode && prevServerCode !== serverCode;
+    let pendingCode = '';
+    let pendingFresh = false;
 
     if (typeof window !== 'undefined') {
-      const pending = localStorage.getItem(PENDING_KEY);
-      if (pending && pending !== serverCode) {
+      const pendingRaw = String(localStorage.getItem(PENDING_KEY) || '').trim().toUpperCase();
+      const pendingTs = Number(localStorage.getItem(PENDING_TS_KEY) || 0);
+      pendingFresh = !!pendingRaw && !!pendingTs && Date.now() - pendingTs < PENDING_TTL_MS;
+      pendingCode = pendingFresh ? pendingRaw : '';
+
+      if (pendingRaw && !pendingFresh) {
         localStorage.removeItem(PENDING_KEY);
         localStorage.removeItem(PENDING_TS_KEY);
       }
-      if (pending === serverCode) {
+      if (pendingCode && pendingCode === serverCode) {
         localStorage.removeItem(PENDING_KEY);
         localStorage.removeItem(PENDING_TS_KEY);
       }
+    }
+
+    // Пока сервер не догнал свежий pending, держим оптимистичную валюту и не откатываем UI.
+    const waitingForServerSync = pendingFresh && pendingCode && pendingCode !== serverCode;
+    if (waitingForServerSync) {
+      if (selectedCode !== pendingCode) {
+        setSelectedCode(pendingCode);
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, pendingCode);
+      }
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_KEY, serverCode);
     }
 
@@ -171,11 +192,12 @@ export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const pending = localStorage.getItem(PENDING_KEY);
+    const pending = String(localStorage.getItem(PENDING_KEY) || '').trim().toUpperCase();
     const pendingTs = Number(localStorage.getItem(PENDING_TS_KEY) || 0);
+    const serverCode = String(user?.currency?.code || '').trim().toUpperCase();
     const pendingFresh =
       !!pending && !!pendingTs && Date.now() - pendingTs < PENDING_TTL_MS;
-    if (!pendingFresh || !pending || !user?.currency?.code || pending === user.currency.code) {
+    if (!pendingFresh || !pending || !serverCode || pending === serverCode) {
       return;
     }
 
