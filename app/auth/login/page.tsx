@@ -310,7 +310,41 @@ export default function LoginPage() {
     localStorage.setItem('auth_source', source);
   };
 
-  const handleAuthTokens = async (tokens: AuthTokens, source: 'email' | 'telegram', labelHint?: string) => {
+  const extractDirectUserToken = (value: unknown): string => {
+    if (!value || typeof value !== 'object') return '';
+    const record = value as Record<string, unknown>;
+    const token =
+      (typeof record.user_token === 'string' && record.user_token) ||
+      (typeof record.auth_token === 'string' && record.auth_token) ||
+      (typeof record.token === 'string' && record.token) ||
+      '';
+    return token.trim();
+  };
+
+  const extractAuthTokens = (value: unknown): AuthTokens | null => {
+    if (!value || typeof value !== 'object') return null;
+    const record = value as Record<string, unknown>;
+    const accessToken = typeof record.access_token === 'string' ? record.access_token.trim() : '';
+    if (!accessToken) return null;
+    const refreshToken = typeof record.refresh_token === 'string' ? record.refresh_token.trim() : '';
+    const tokenType = typeof record.token_type === 'string' ? record.token_type : undefined;
+    return { access_token: accessToken, refresh_token: refreshToken, token_type: tokenType };
+  };
+
+  const collectTelegramAuthCandidates = (value: unknown): unknown[] => {
+    if (!value || typeof value !== 'object') return [];
+    const record = value as Record<string, unknown>;
+    return [value, record.data, record.payload, record.result].filter(
+      (item) => !!item && typeof item === 'object'
+    );
+  };
+
+  const handleAuthTokens = async (
+    tokens: AuthTokens,
+    source: 'email' | 'telegram',
+    labelHint?: string,
+    fallbackUserToken?: string
+  ) => {
     if (!tokens.access_token) {
       throw new Error(t('auth.login_error'));
     }
@@ -349,6 +383,18 @@ export default function LoginPage() {
     } catch {
       userInfo = null;
     }
+    if (!userInfo && fallbackUserToken) {
+      setUserToken(fallbackUserToken);
+      try {
+        const fallbackUserInfo = await fetchUserInfoByToken(fallbackUserToken);
+        if (fallbackUserInfo?.id) {
+          localStorage.setItem('user_id', String(fallbackUserInfo.id));
+        }
+      } catch {
+      }
+      window.location.href = '/';
+      return;
+    }
     if (!userInfo) {
       throw new Error(t('auth.login_error'));
     }
@@ -358,6 +404,26 @@ export default function LoginPage() {
     }
     await resolveAndStoreAuthLabel(tokens.access_token, source, labelHint, userInfo);
     window.location.href = '/';
+  };
+
+  const handleTelegramAuthResult = async (value: unknown): Promise<boolean> => {
+    const candidates = collectTelegramAuthCandidates(value);
+    for (const candidate of candidates) {
+      const directUserToken = extractDirectUserToken(candidate);
+      const tokens = extractAuthTokens(candidate);
+      if (tokens) {
+        await handleAuthTokens(tokens, 'telegram', undefined, directUserToken || undefined);
+        return true;
+      }
+      if (directUserToken) {
+        clearAuthTokens();
+        localStorage.setItem('auth_source', 'telegram');
+        setUserToken(directUserToken);
+        window.location.href = '/';
+        return true;
+      }
+    }
+    return false;
   };
 
   const openTelegramAuthPopup = () => {
@@ -402,14 +468,11 @@ export default function LoginPage() {
 
   const handleTokensFromHash = async (hash: string) => {
       const params = new URLSearchParams(hash.replace(/^#/, ''));
-      const accessToken = params.get('access_token') || '';
-      if (!accessToken) return;
-      const refreshToken = params.get('refresh_token') || '';
-      const tokenType = params.get('token_type') || '';
-      await handleAuthTokens(
-        { access_token: accessToken, refresh_token: refreshToken, token_type: tokenType },
-        'telegram'
-      );
+      const payload = Object.fromEntries(params.entries());
+      const handled = await handleTelegramAuthResult(payload);
+      if (!handled) {
+        throw new Error(t('auth.telegram_error'));
+      }
   };
 
     const allowedOrigins = new Set([
@@ -420,18 +483,36 @@ export default function LoginPage() {
 
     const onMessage = (event: MessageEvent) => {
       if (!allowedOrigins.has(event.origin)) return;
-      if (!event.data || typeof event.data !== 'object') return;
-      const data = event.data as Partial<AuthTokens & { type?: string }>;
-      if (data.type === 'auth_success' && data.access_token) {
-        cleanup(pollTimer);
-        handleAuthTokens(
-          { access_token: data.access_token, refresh_token: data.refresh_token || '', token_type: data.token_type },
-          'telegram'
-        ).catch((err) => {
-          setError(err instanceof Error ? err.message : t('auth.telegram_error'));
-        });
-        if (!popup.closed) popup.close();
+      let payload: unknown = event.data;
+      if (typeof payload === 'string') {
+        try {
+          payload = JSON.parse(payload);
+        } catch {
+          return;
+        }
       }
+      if (!payload || typeof payload !== 'object') return;
+
+      const record = payload as Record<string, unknown>;
+      const type = typeof record.type === 'string' ? record.type.toLowerCase() : '';
+      if (type && (type.includes('error') || type.includes('cancel'))) {
+        cleanup(pollTimer);
+        setError(t('auth.telegram_error'));
+        if (!popup.closed) popup.close();
+        return;
+      }
+
+      handleTelegramAuthResult(payload)
+        .then((handled) => {
+          if (!handled) return;
+          cleanup(pollTimer);
+          if (!popup.closed) popup.close();
+        })
+        .catch((err) => {
+          cleanup(pollTimer);
+          setError(err instanceof Error ? err.message : t('auth.telegram_error'));
+          if (!popup.closed) popup.close();
+        });
     };
 
     window.addEventListener('message', onMessage);
