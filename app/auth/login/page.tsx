@@ -3,9 +3,11 @@ import React, { useEffect, useState } from 'react';
 import './AuthPage.css';
 import {
   AUTH_LOGOUT_INTENT_KEY,
+  createAuthUserFromTelegram,
   authUserById,
   type AuthTokens,
   type AuthUserProfile,
+  type TelegramAuthPayload,
   isManualLogoutIntent,
   extractAuthToken,
   fetchAuthProfile,
@@ -18,6 +20,7 @@ import {
   setUserToken,
   type UserInfo,
   verifyAuthToken,
+  verifyTelegramAuth,
   verifyEmailAuthCode,
 } from '@/lib/api';
 import { AUTH_POPUP_ORIGIN, SERVICE_NAME, TELEGRAM_BOT_USERNAME, TELEGRAM_OAUTH_URL } from '@/lib/appConfig';
@@ -339,6 +342,54 @@ export default function LoginPage() {
     );
   };
 
+  const parseNumericValue = (raw: unknown): number | null => {
+    if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (!trimmed || !/^-?\d+$/.test(trimmed)) return null;
+      const parsed = Number(trimmed);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  };
+
+  const extractTelegramPayload = (value: unknown): TelegramAuthPayload | null => {
+    if (!value || typeof value !== 'object') return null;
+    const record = value as Record<string, unknown>;
+    const id = parseNumericValue(record.id);
+    const authDate =
+      parseNumericValue(record.auth_date) ??
+      parseNumericValue(record.authDate);
+    const hash = typeof record.hash === 'string' ? record.hash.trim() : '';
+    if (!id || !authDate || !hash) return null;
+
+    const firstName =
+      (typeof record.first_name === 'string' && record.first_name.trim()) ||
+      (typeof record.firstName === 'string' && record.firstName.trim()) ||
+      '';
+    const lastName =
+      (typeof record.last_name === 'string' && record.last_name.trim()) ||
+      (typeof record.lastName === 'string' && record.lastName.trim()) ||
+      '';
+    const username =
+      (typeof record.username === 'string' && record.username.trim()) || '';
+    const photoUrl =
+      (typeof record.photo_url === 'string' && record.photo_url.trim()) ||
+      (typeof record.photoUrl === 'string' && record.photoUrl.trim()) ||
+      '';
+
+    const payload: TelegramAuthPayload = {
+      id,
+      first_name: firstName || username || `user_${id}`,
+      auth_date: authDate,
+      hash,
+    };
+    if (lastName) payload.last_name = lastName;
+    if (username) payload.username = username;
+    if (photoUrl) payload.photo_url = photoUrl;
+    return payload;
+  };
+
   const handleAuthTokens = async (
     tokens: AuthTokens,
     source: 'email' | 'telegram',
@@ -422,6 +473,28 @@ export default function LoginPage() {
         window.location.href = '/';
         return true;
       }
+
+      const telegramPayload = extractTelegramPayload(candidate);
+      if (telegramPayload) {
+        let authTokens: AuthTokens | null = null;
+        try {
+          authTokens = await verifyTelegramAuth(telegramPayload);
+        } catch {
+          authTokens = null;
+        }
+
+        if (authTokens?.access_token) {
+          await handleAuthTokens(authTokens, 'telegram');
+          return true;
+        }
+
+        const userToken = await createAuthUserFromTelegram(telegramPayload);
+        clearAuthTokens();
+        localStorage.setItem('auth_source', 'telegram');
+        setUserToken(userToken);
+        window.location.href = '/';
+        return true;
+      }
     }
     return false;
   };
@@ -485,10 +558,16 @@ export default function LoginPage() {
       if (!allowedOrigins.has(event.origin)) return;
       let payload: unknown = event.data;
       if (typeof payload === 'string') {
+        const raw = payload.trim();
         try {
-          payload = JSON.parse(payload);
+          payload = JSON.parse(raw);
         } catch {
-          return;
+          const maybeQuery = raw.startsWith('#') ? raw.slice(1) : raw;
+          if (maybeQuery.includes('=')) {
+            payload = Object.fromEntries(new URLSearchParams(maybeQuery).entries());
+          } else {
+            return;
+          }
         }
       }
       if (!payload || typeof payload !== 'object') return;
