@@ -6,6 +6,7 @@
   --accent: #8b5cf6;
   --accent-secondary: #ec4899;
   --success: #10b981;
+  --warning: #f59e0b;
   --primary: #007AFF;
   --primary-hover: #0051D5;
   --danger: #FF3B30;
@@ -36,22 +37,22 @@
 
 /* СВЕТЛАЯ ТЕМА через класс */
 :root.light-theme {
-  --bg-primary: #FFFFFF;
-  --bg-secondary: rgba(0, 0, 0, 0.04);
-  --bg-card: rgba(255, 255, 255, 0.98);
-  --border: rgba(0, 0, 0, 0.08);
-  --text-primary: rgba(0, 0, 0, 0.9);
-  --text-secondary: rgba(0, 0, 0, 0.6);
-  --text-muted: rgba(0, 0, 0, 0.4);
-  --text-tertiary: rgba(0, 0, 0, 0.4);
-  --surface: rgba(0, 0, 0, 0.04);
-  --surface-hover: rgba(0, 0, 0, 0.08);
-  --surface-active: rgba(0, 122, 255, 0.1);
-  --progress-bg: rgba(0, 0, 0, 0.1);
-  --progress-fill: #007AFF;
-  --button-bg: #1A1A1F;
+  --bg-primary: #F8F8FA;
+  --bg-secondary: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --border: rgba(0, 0, 0, 0.06);
+  --text-primary: #1a1a1f;
+  --text-secondary: #6b6b78;
+  --text-muted: #9a9aab;
+  --text-tertiary: #9a9aab;
+  --surface: rgba(0, 0, 0, 0.03);
+  --surface-hover: rgba(0, 0, 0, 0.05);
+  --surface-active: rgba(0, 0, 0, 0.08);
+  --progress-bg: rgba(0, 0, 0, 0.06);
+  --progress-fill: #1a1a1f;
+  --button-bg: #1a1a1f;
   --button-text: #FFFFFF;
-  --dropdown-bg: #f8f8f8fa;
+  --dropdown-bg: #f8f8faff;
 }
 
 /* Базовые стили */
@@ -293,15 +294,13 @@ img {
   }
 
   .main-content {
-    padding: 40px;
-    padding-bottom: 40px;
+    padding: 24px 40px;
   }
 }
 
 @media (min-width: 768px) and (max-width: 1015px) {
   .main-content {
-    padding: 24px;
-    padding-bottom: 24px;
+    padding: 17px 24px;
   }
 }
 

@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+.claude
 tmp_balance.html
 tmp_balance_styles.css
 
